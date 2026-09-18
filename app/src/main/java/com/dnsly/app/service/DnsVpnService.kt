@@ -70,6 +70,7 @@ class DnsVpnService : VpnService() {
 
     private fun startVpn(server: DnsServer) {
         stopVpn()
+        DnsCache.clear()
 
         val notification = buildNotification(server)
         startForeground(NOTIFICATION_ID, notification)
@@ -144,44 +145,6 @@ class DnsVpnService : VpnService() {
 
                                 val query = DnsPacketParser.parseQuery(queryBytes, 0, queryBytes.size)
                                 if (query != null) {
-                                    val isAdBlockEnabled = repository.localAdBlockEnabled.value
-                                    val isBlockedLocally = isAdBlockEnabled && LocalAdBlocker.isDomainBlocked(query.domain)
-
-                                    if (isBlockedLocally) {
-                                        // Domain is in ad/tracker blocklist - synthesize blocked response
-                                        val blockedDnsPayload = DnsPacketParser.createBlockedResponse(
-                                            queryBytes,
-                                            0,
-                                            queryBytes.size,
-                                            asNxDomain = true
-                                        )
-
-                                        val responsePacket = buildUdpIpPacket(
-                                            srcIp = dstIp,
-                                            dstIp = srcIp,
-                                            srcPort = dstPort,
-                                            dstPort = srcPort,
-                                            payload = blockedDnsPayload
-                                        )
-                                        synchronized(outputStream) {
-                                            outputStream.write(responsePacket)
-                                            outputStream.flush()
-                                        }
-
-                                        repository.recordQuery(
-                                            QueryLog(
-                                                domain = query.domain,
-                                                isBlocked = true,
-                                                queryType = DnsPacketParser.getTypeName(query.queryType),
-                                                upstreamServer = server.name,
-                                                latencyMs = 0L,
-                                                reason = "Blocked by DNSly Ad/Tracker Shield",
-                                                protocol = "Local Filter"
-                                            )
-                                        )
-                                        continue
-                                    }
-
                                     // Check ultra-fast in-memory cache for repeat queries (<1ms)
                                     val cachedResponse = DnsCache.get(query.domain, query.queryType)
                                     if (cachedResponse != null && cachedResponse.size >= 12) {
@@ -256,53 +219,72 @@ class DnsVpnService : VpnService() {
     ) {
         val startTime = System.currentTimeMillis()
 
-        // 1. Primary: Encrypted DNS-over-HTTPS (DoH, RFC 8484)
-        if (server.dohUrl.isNotBlank()) {
-            try {
-                dohClient.registerBootstrap(server.dohUrl, server.ipv4Primary)
-                val dohResponse = dohClient.query(server.dohUrl, queryBytes)
-                if (dohResponse != null && dohResponse.isNotEmpty()) {
-                    val latency = System.currentTimeMillis() - startTime
-                    val fullResponse = buildUdpIpPacket(
-                        srcIp = dstIp,
-                        dstIp = srcIp,
-                        srcPort = dstPort,
-                        dstPort = srcPort,
-                        payload = dohResponse
-                    )
+        // Ultra-Fast Direct Native UDP DNS (Port 53) - 10ms to 30ms latency
+        val primaryIp = server.ipv4Primary.ifBlank { "1.1.1.1" }
+        var resolved = resolveUdp(
+            queryBytes = queryBytes,
+            upstreamIp = primaryIp,
+            startTime = startTime,
+            domain = domain,
+            qType = qType,
+            srcPort = srcPort,
+            dstPort = dstPort,
+            srcIp = srcIp,
+            dstIp = dstIp,
+            outputStream = outputStream,
+            serverName = server.name
+        )
 
-                    synchronized(outputStream) {
-                        outputStream.write(fullResponse)
-                        outputStream.flush()
-                    }
-
-                    // Save to memory cache for future multi-socket requests
-                    DnsCache.put(domain, qType, dohResponse)
-
-                    repository.recordQuery(
-                        QueryLog(
-                            domain = domain,
-                            isBlocked = false,
-                            queryType = DnsPacketParser.getTypeName(qType),
-                            upstreamServer = server.name,
-                            latencyMs = latency,
-                            reason = "Encrypted DoH (HTTPS)",
-                            protocol = "DoH"
-                        )
-                    )
-                    return
-                }
-            } catch (_: Exception) {
-                // Graceful fallback to UDP 53
-            }
+        // Instant fallback to secondary DNS IP if primary fails
+        if (!resolved && server.ipv4Secondary.isNotBlank()) {
+            resolved = resolveUdp(
+                queryBytes = queryBytes,
+                upstreamIp = server.ipv4Secondary,
+                startTime = startTime,
+                domain = domain,
+                qType = qType,
+                srcPort = srcPort,
+                dstPort = dstPort,
+                srcIp = srcIp,
+                dstIp = dstIp,
+                outputStream = outputStream,
+                serverName = "${server.name} (Backup)"
+            )
         }
 
-        // 2. Secondary / Fallback: Standard UDP port 53 datagram
-        val upstreamIp = server.ipv4Primary.ifBlank { "94.140.14.14" }
-        try {
+        if (!resolved) {
+            val latency = System.currentTimeMillis() - startTime
+            repository.recordQuery(
+                QueryLog(
+                    domain = domain,
+                    isBlocked = false,
+                    queryType = DnsPacketParser.getTypeName(qType),
+                    upstreamServer = "${server.name} (Timeout)",
+                    latencyMs = latency,
+                    reason = "DNS Request Timeout",
+                    protocol = "Failed"
+                )
+            )
+        }
+    }
+
+    private fun resolveUdp(
+        queryBytes: ByteArray,
+        upstreamIp: String,
+        startTime: Long,
+        domain: String,
+        qType: Int,
+        srcPort: Int,
+        dstPort: Int,
+        srcIp: ByteArray,
+        dstIp: ByteArray,
+        outputStream: FileOutputStream,
+        serverName: String
+    ): Boolean {
+        return try {
             DatagramSocket().use { socket ->
                 protect(socket)
-                socket.soTimeout = 2000
+                socket.soTimeout = 1500
 
                 val upstreamAddr = InetAddress.getByName(upstreamIp)
                 val outPacket = DatagramPacket(queryBytes, queryBytes.size, upstreamAddr, 53)
@@ -329,7 +311,7 @@ class DnsVpnService : VpnService() {
                     outputStream.flush()
                 }
 
-                // Save to memory cache for future multi-socket requests
+                // Cache in memory for instant repeat lookups (<1ms)
                 DnsCache.put(domain, qType, respPayload)
 
                 repository.recordQuery(
@@ -337,26 +319,16 @@ class DnsVpnService : VpnService() {
                         domain = domain,
                         isBlocked = false,
                         queryType = DnsPacketParser.getTypeName(qType),
-                        upstreamServer = server.name,
+                        upstreamServer = serverName,
                         latencyMs = latency,
-                        reason = "Resolved via UDP datagram",
+                        reason = "Ultra-fast direct UDP (Port 53)",
                         protocol = "UDP"
                     )
                 )
+                true
             }
-        } catch (e: Exception) {
-            val latency = System.currentTimeMillis() - startTime
-            repository.recordQuery(
-                QueryLog(
-                    domain = domain,
-                    isBlocked = false,
-                    queryType = DnsPacketParser.getTypeName(qType),
-                    upstreamServer = "${server.name} (Timeout)",
-                    latencyMs = latency,
-                    reason = "Connection Timeout",
-                    protocol = "Failed"
-                )
-            )
+        } catch (_: Exception) {
+            false
         }
     }
 

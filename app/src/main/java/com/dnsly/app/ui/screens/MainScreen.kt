@@ -103,7 +103,6 @@ fun MainScreen(
     val clipboardManager = LocalClipboardManager.current
     val isConnected by repository.isVpnConnected.collectAsState()
     val selectedServer by repository.selectedServer.collectAsState()
-    val adBlockEnabled by repository.localAdBlockEnabled.collectAsState()
     val totalQueries by repository.totalQueries.collectAsState()
     val blockedQueries by repository.blockedQueries.collectAsState()
     val servers by repository.servers.collectAsState()
@@ -264,10 +263,8 @@ fun MainScreen(
                 onAddCustom = { showCustomDialog = true }
             )
 
-            // 3. NextDNS-Style Security & Privacy Settings Card
+            // 3. Engine Architecture & Performance Card
             NextDnsSecurityFeaturesCard(
-                adBlockEnabled = adBlockEnabled,
-                onToggleAdBlock = { repository.setLocalAdBlockEnabled(it) },
                 server = selectedServer
             )
 
@@ -445,14 +442,14 @@ fun NextDnsStatusBanner(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Lock,
+                                imageVector = Icons.Default.Bolt,
                                 contentDescription = null,
                                 tint = greenAccent,
-                                modifier = Modifier.size(11.dp)
+                                modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (selectedServer.dohUrl.isNotBlank()) "DoH (RFC 8484)" else "UDP Port 53",
+                                text = "Direct UDP (Port 53)",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 10.sp
@@ -760,13 +757,10 @@ private fun IpPillBox(
 }
 
 /**
- * NextDNS-Style Security & Privacy Settings Card:
- * Grouped rows with clean switches and badges.
+ * NextDNS-Style Performance & Security Engine Card
  */
 @Composable
 fun NextDnsSecurityFeaturesCard(
-    adBlockEnabled: Boolean,
-    onToggleAdBlock: (Boolean) -> Unit,
     server: DnsServer,
     modifier: Modifier = Modifier
 ) {
@@ -783,14 +777,14 @@ fun NextDnsSecurityFeaturesCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    imageVector = Icons.Default.Security,
+                    imageVector = Icons.Default.Bolt,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "SECURITY & PRIVACY CONTROLS",
+                    text = "SPEED & ENGINE ARCHITECTURE",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.8.sp,
@@ -802,72 +796,7 @@ fun NextDnsSecurityFeaturesCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Row 1: Block Ads & Trackers
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (adBlockEnabled) MaterialTheme.colorScheme.tertiaryContainer
-                                else MaterialTheme.colorScheme.surfaceContainerHigh
-                            )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            tint = if (adBlockEnabled) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Block Ads & Trackers",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (adBlockEnabled) "On-device filter (60,000+ domains active)" else "Filtering paused",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Switch(
-                    checked = adBlockEnabled,
-                    onCheckedChange = onToggleAdBlock,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.surface,
-                        checkedTrackColor = MaterialTheme.colorScheme.tertiary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                    )
-                )
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            )
-
-            // Row 2: Encrypted DoH Transport
+            // Row 1: Direct UDP Engine
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -885,7 +814,7 @@ fun NextDnsSecurityFeaturesCard(
                             .background(MaterialTheme.colorScheme.primaryContainer)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Lock,
+                            imageVector = Icons.Default.Bolt,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
@@ -896,14 +825,14 @@ fun NextDnsSecurityFeaturesCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "DNS-over-HTTPS Tunnel",
+                            text = "Direct Native UDP Transport",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (server.dohUrl.isNotBlank()) "Enforced over TLS 1.3 on port 443" else "Fallback to UDP port 53",
+                            text = "Ultra-low latency pipeline on port 53 (10–25ms)",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -914,15 +843,15 @@ fun NextDnsSecurityFeaturesCard(
 
                 Surface(
                     shape = MaterialTheme.shapes.extraSmall,
-                    color = if (server.dohUrl.isNotBlank()) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
+                    color = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
                     Text(
-                        text = if (server.dohUrl.isNotBlank()) "Active" else "UDP",
+                        text = "10–25ms",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp
                         ),
-                        color = if (server.dohUrl.isNotBlank()) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
@@ -934,7 +863,7 @@ fun NextDnsSecurityFeaturesCard(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
             )
 
-            // Row 3: Fast Memory Cache
+            // Row 2: Fast Memory Cache
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -990,6 +919,73 @@ fun NextDnsSecurityFeaturesCard(
                             fontSize = 10.sp
                         ),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 12.dp),
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            )
+
+            // Row 3: Upstream Cloud Filtering
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(server.brandColor.copy(alpha = 0.15f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = server.brandColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Upstream Cloud Protection",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Handled natively by ${server.name}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = MaterialTheme.shapes.extraSmall,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Text(
+                        text = "Cloud",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }

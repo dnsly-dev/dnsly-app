@@ -33,10 +33,14 @@ object DnsCache {
 
     /**
      * Caches response payload for domain and query type.
-     * Extracts TTL or defaults to 120 seconds.
+     * Only caches valid responses containing at least one answer record.
      */
     fun put(domain: String, qType: Int, payload: ByteArray, ttlSeconds: Long = 120) {
-        if (payload.isEmpty()) return
+        if (payload.size < 12) return
+
+        // Verify DNS Answer Count (bytes 6 and 7 in DNS Header)
+        val anCount = ((payload[6].toInt() and 0xFF) shl 8) or (payload[7].toInt() and 0xFF)
+        if (anCount <= 0) return // Do not cache empty or failed responses
 
         if (cache.size >= MAX_ENTRIES) {
             val now = System.currentTimeMillis()

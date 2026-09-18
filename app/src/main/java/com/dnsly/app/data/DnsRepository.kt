@@ -35,9 +35,6 @@ class DnsRepository(private val context: Context) {
     private val _isVpnConnected = MutableStateFlow(false)
     val isVpnConnected: StateFlow<Boolean> = _isVpnConnected.asStateFlow()
 
-    private val _localAdBlockEnabled = MutableStateFlow(prefs.getBoolean("ad_block_enabled", true))
-    val localAdBlockEnabled: StateFlow<Boolean> = _localAdBlockEnabled.asStateFlow()
-
     private val _queryLogs = MutableStateFlow<List<QueryLog>>(emptyList())
     val queryLogs: StateFlow<List<QueryLog>> = _queryLogs.asStateFlow()
 
@@ -110,11 +107,6 @@ class DnsRepository(private val context: Context) {
 
     fun setVpnConnected(connected: Boolean) {
         _isVpnConnected.value = connected
-    }
-
-    fun setLocalAdBlockEnabled(enabled: Boolean) {
-        _localAdBlockEnabled.value = enabled
-        prefs.edit().putBoolean("ad_block_enabled", enabled).apply()
     }
 
     fun addCustomServer(
