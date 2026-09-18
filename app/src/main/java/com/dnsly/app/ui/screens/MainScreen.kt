@@ -191,12 +191,32 @@ fun MainScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showDnsSheet = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = "DNS Directory",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable { showDnsSheet = true }
+                            .padding(end = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Dns,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = "Switch DNS",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -220,27 +240,15 @@ fun MainScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. NextDNS-Style Status Hero Banner
+            // 1. NextDNS-Style Status Hero Banner with Clickable Resolver Pill
             NextDnsStatusBanner(
                 isConnected = isConnected,
                 selectedServer = selectedServer,
-                onToggle = onToggleVpn
+                onToggle = onToggleVpn,
+                onOpenDirectory = { showDnsSheet = true }
             )
 
-            // 2. NextDNS-Style Endpoints & Protocol Card
-            NextDnsEndpointsCard(
-                server = selectedServer,
-                onCopy = { text, label -> copyToClipboard(text, label) }
-            )
-
-            // 3. NextDNS-Style Security & Privacy Settings Card
-            NextDnsSecurityFeaturesCard(
-                adBlockEnabled = adBlockEnabled,
-                onToggleAdBlock = { repository.setLocalAdBlockEnabled(it) },
-                server = selectedServer
-            )
-
-            // 4. NextDNS-Style Profile Switcher & Quick-Pick Resolvers
+            // 2. High-Visibility DNS Resolver Switcher Card (Positioned Front & Center Above the Fold)
             NextDnsProfileSwitcherCard(
                 servers = servers,
                 selectedServer = selectedServer,
@@ -254,6 +262,19 @@ fun MainScreen(
                 },
                 onOpenDirectory = { showDnsSheet = true },
                 onAddCustom = { showCustomDialog = true }
+            )
+
+            // 3. NextDNS-Style Security & Privacy Settings Card
+            NextDnsSecurityFeaturesCard(
+                adBlockEnabled = adBlockEnabled,
+                onToggleAdBlock = { repository.setLocalAdBlockEnabled(it) },
+                server = selectedServer
+            )
+
+            // 4. NextDNS-Style Endpoints & Protocol Card
+            NextDnsEndpointsCard(
+                server = selectedServer,
+                onCopy = { text, label -> copyToClipboard(text, label) }
             )
 
             // 5. NextDNS-Style Telemetry Quick Metrics Bar
@@ -275,6 +296,7 @@ fun NextDnsStatusBanner(
     isConnected: Boolean,
     selectedServer: DnsServer,
     onToggle: () -> Unit,
+    onOpenDirectory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val greenBg = Color(0xFFEDFBF2)
@@ -343,15 +365,51 @@ fun NextDnsStatusBanner(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (isConnected) "This device is using DNSly with ${selectedServer.name}."
-                            else "This device is using default ISP DNS.",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                            color = if (isConnected) greenTextSub else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        // Clickable resolver pill right in the hero banner
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(
+                                    if (isConnected) Color.White.copy(alpha = 0.9f)
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                                )
+                                .border(
+                                    0.5.dp,
+                                    if (isConnected) greenBorder else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                                    MaterialTheme.shapes.small
+                                )
+                                .clickable(onClick = onOpenDirectory)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(selectedServer.brandColor)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = selectedServer.name,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                ),
+                                color = if (isConnected) greenTextDark else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "▾",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                ),
+                                color = if (isConnected) greenAccent else MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
 
@@ -430,6 +488,34 @@ fun NextDnsStatusBanner(
                             )
                         }
                     }
+
+                    Surface(
+                        shape = MaterialTheme.shapes.extraSmall,
+                        color = Color.White.copy(alpha = 0.85f),
+                        border = BorderStroke(0.5.dp, greenBorder),
+                        modifier = Modifier.clickable(onClick = onOpenDirectory)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = greenAccent,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Change DNS",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                ),
+                                color = greenTextDark
+                            )
+                        }
+                    }
                 } else {
                     Surface(
                         shape = MaterialTheme.shapes.extraSmall,
@@ -444,6 +530,33 @@ fun NextDnsStatusBanner(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
+                    }
+
+                    Surface(
+                        shape = MaterialTheme.shapes.extraSmall,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.clickable(onClick = onOpenDirectory)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Select Provider",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
             }
@@ -906,99 +1019,158 @@ fun NextDnsProfileSwitcherCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "RESOLVER PROFILE",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        fontSize = 11.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                TextButton(onClick = onOpenDirectory) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Dns,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "All ${servers.size} →",
+                        text = "ACTIVE DNS RESOLVER",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            fontSize = 11.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                TextButton(
+                    onClick = onOpenDirectory,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "Browse all ${servers.size} ▾",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Active Profile Highlight
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            // Active Profile Highlight Card - entire box is clickable
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), MaterialTheme.shapes.medium)
-                    .padding(12.dp)
+                    .clickable(onClick = onOpenDirectory)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.padding(12.dp)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(selectedServer.brandColor.copy(alpha = 0.15f))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Text(
-                            text = selectedServer.initials,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            ),
-                            color = selectedServer.brandColor
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(selectedServer.brandColor.copy(alpha = 0.15f))
+                        ) {
+                            Text(
+                                text = selectedServer.initials,
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                ),
+                                color = selectedServer.brandColor
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = selectedServer.name,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = selectedServer.categories,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = selectedServer.name,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                    Button(
+                        onClick = onOpenDirectory,
+                        shape = MaterialTheme.shapes.small,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SwapHoriz,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
                         )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = selectedServer.categories,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = "Change",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                }
-
-                Button(
-                    onClick = onOpenDirectory,
-                    shape = MaterialTheme.shapes.small,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Switch", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Quick Pick Resolver Chips
+            // 1-Tap Quick Switch Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "1-TAP QUICK SWITCH:",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        fontSize = 10.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = "Tap to activate",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp
+                    ),
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Quick Pick Resolver Chips Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1011,6 +1183,44 @@ fun NextDnsProfileSwitcherCard(
                         server = server,
                         isSelected = isCurrent,
                         onClick = { onSelectServer(server) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Add Custom DNS shortcut row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TextButton(
+                    onClick = onAddCustom,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Add Custom DNS",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                TextButton(
+                    onClick = onOpenDirectory,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "View all ${servers.size} providers →",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -1159,21 +1369,23 @@ fun QuickPickServerChip(
                 .clip(CircleShape)
                 .background(
                     if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                    else server.brandColor.copy(alpha = 0.15f)
                 )
         ) {
             Text(
                 text = server.initials.take(2),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 9.sp),
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else server.brandColor
             )
         }
 
         Spacer(modifier = Modifier.width(8.dp))
 
         Text(
-            text = server.name.take(12),
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+            text = server.name.take(14),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            ),
             color = textC
         )
 
