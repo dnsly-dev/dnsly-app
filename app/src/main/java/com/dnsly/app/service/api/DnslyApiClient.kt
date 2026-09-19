@@ -38,9 +38,16 @@ class DnslyApiClient private constructor(private val context: Context) {
             return id
         }
 
-    fun scheduleHeartbeat(repository: DnsRepository) {
+    fun scheduleHeartbeat(repository: DnsRepository, force: Boolean = false) {
         scope.launch {
-            sendHeartbeat(repository)
+            val lastSync = prefs.getLong("last_heartbeat_time", 0L)
+            val now = System.currentTimeMillis()
+            if (force || (now - lastSync) >= COOLDOWN_MS) {
+                sendHeartbeat(repository)
+            } else {
+                val remainingMins = ((COOLDOWN_MS - (now - lastSync)) / 60000)
+                Log.d(TAG, "Heartbeat throttled by 1-hour cooldown. Next sync in $remainingMins minutes.")
+            }
         }
     }
 
@@ -96,6 +103,7 @@ class DnslyApiClient private constructor(private val context: Context) {
         const val BASE_URL = "https://api.dnsly.shovon.bd/"
         const val API_KEY = "cf1a5804f6a44c45da05b04dda52f8bc75242cdf0c827db5fa2aa94dd8bce8a7"
         private const val TAG = "DnslyApiClient"
+        private const val COOLDOWN_MS = 60 * 60 * 1000L // 1-Hour Cooldown
 
         @Volatile
         private var INSTANCE: DnslyApiClient? = null
