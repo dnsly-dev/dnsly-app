@@ -165,14 +165,16 @@ class DnsVpnService : VpnService() {
                                             outputStream.flush()
                                         }
 
+                                        val isBlockedCached = DnsPacketParser.isSinkholedResponse(cachedResponse)
+
                                         repository.recordQuery(
                                             QueryLog(
                                                 domain = query.domain,
-                                                isBlocked = false,
+                                                isBlocked = isBlockedCached,
                                                 queryType = DnsPacketParser.getTypeName(query.queryType),
                                                 upstreamServer = "DNSly Fast Cache",
                                                 latencyMs = 0L,
-                                                reason = "Instant cache lookup (<1ms)",
+                                                reason = if (isBlockedCached) "Blocked by Upstream DNS (Cached)" else "Instant cache lookup (<1ms)",
                                                 protocol = "Cache"
                                             )
                                         )
@@ -311,17 +313,20 @@ class DnsVpnService : VpnService() {
                     outputStream.flush()
                 }
 
+                // Check if upstream DNS response returned a sinkholed/blocked IP (0.0.0.0, 127.0.0.1, ::)
+                val isBlocked = DnsPacketParser.isSinkholedResponse(respPayload)
+
                 // Cache in memory for instant repeat lookups (<1ms)
                 DnsCache.put(domain, qType, respPayload)
 
                 repository.recordQuery(
                     QueryLog(
                         domain = domain,
-                        isBlocked = false,
+                        isBlocked = isBlocked,
                         queryType = DnsPacketParser.getTypeName(qType),
                         upstreamServer = serverName,
                         latencyMs = latency,
-                        reason = "Ultra-fast direct UDP (Port 53)",
+                        reason = if (isBlocked) "Blocked by Upstream DNS Protection" else "Ultra-fast direct UDP (Port 53)",
                         protocol = "UDP"
                     )
                 )

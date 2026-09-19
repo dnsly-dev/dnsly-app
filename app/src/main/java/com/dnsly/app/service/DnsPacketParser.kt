@@ -125,4 +125,89 @@ object DnsPacketParser {
         65 -> "HTTPS"
         else -> "TYPE $type"
     }
+
+    /**
+     * Inspects a raw DNS response payload from an upstream resolver to check if it returned
+     * a blocked/sinkholed IP (e.g. 0.0.0.0, 127.0.0.1, ::, ::1) or NXDOMAIN from filtering DNS.
+     */
+    fun isSinkholedResponse(dnsPayload: ByteArray, offset: Int = 0, length: Int = dnsPayload.size): Boolean {
+        if (length < 12) return false
+        return try {
+            val buffer = ByteBuffer.wrap(dnsPayload, offset, length)
+            buffer.short // Transaction ID
+            val flags = buffer.short.toInt() and 0xFFFF
+            val isResponse = (flags and 0x8000) != 0
+            if (!isResponse) return false
+
+            val qdCount = buffer.short.toInt() and 0xFFFF
+            val anCount = buffer.short.toInt() and 0xFFFF
+            buffer.short // NSCOUNT
+            buffer.short // ARCOUNT
+
+            // Skip question section(s)
+            for (i in 0 until qdCount) {
+                if (!skipName(buffer)) return false
+                if (buffer.remaining() < 4) return false
+                buffer.short // QTYPE
+                buffer.short // QCLASS
+            }
+
+            // Parse Answer section(s)
+            for (i in 0 until anCount) {
+                if (!skipName(buffer)) return false
+                if (buffer.remaining() < 10) return false
+                val type = buffer.short.toInt() and 0xFFFF
+                buffer.short // CLASS
+                buffer.int   // TTL
+                val rdLength = buffer.short.toInt() and 0xFFFF
+                if (buffer.remaining() < rdLength) return false
+
+                if (type == 1 && rdLength == 4) { // IPv4 A record
+                    val b0 = buffer.get().toInt() and 0xFF
+                    val b1 = buffer.get().toInt() and 0xFF
+                    val b2 = buffer.get().toInt() and 0xFF
+                    val b3 = buffer.get().toInt() and 0xFF
+                    // 0.0.0.0 or 127.0.0.1 sinkholes
+                    if ((b0 == 0 && b1 == 0 && b2 == 0 && b3 == 0) ||
+                        (b0 == 127 && b1 == 0 && b2 == 0 && b3 == 1)) {
+                        return true
+                    }
+                } else if (type == 28 && rdLength == 16) { // IPv6 AAAA record
+                    var allZero = true
+                    var isLoopback = true
+                    for (j in 0 until 16) {
+                        val b = buffer.get()
+                        if (b != 0.toByte()) allZero = false
+                        if (j == 15 && b != 1.toByte()) isLoopback = false
+                        if (j < 15 && b != 0.toByte()) isLoopback = false
+                    }
+                    if (allZero || isLoopback) {
+                        return true
+                    }
+                } else {
+                    // Skip other record types (CNAME, TXT, etc.)
+                    buffer.position(buffer.position() + rdLength)
+                }
+            }
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun skipName(buffer: ByteBuffer): Boolean {
+        while (buffer.hasRemaining()) {
+            val len = buffer.get().toInt() and 0xFF
+            if (len == 0) return true
+            if ((len and 0xC0) == 0xC0) {
+                // Compression pointer: 2 bytes in total (we already read 1 byte, now skip the second)
+                if (!buffer.hasRemaining()) return false
+                buffer.get()
+                return true
+            }
+            if (buffer.remaining() < len) return false
+            buffer.position(buffer.position() + len)
+        }
+        return false
+    }
 }

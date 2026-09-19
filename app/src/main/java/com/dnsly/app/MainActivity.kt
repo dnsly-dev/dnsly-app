@@ -41,8 +41,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -57,8 +55,8 @@ import com.dnsly.app.ui.screens.ReportsScreen
 import com.dnsly.app.ui.theme.DNSlyTheme
 
 enum class MainNavTab {
-    SHIELD,
-    REPORTS
+    HOME,
+    ACTIVITY
 }
 
 class MainActivity : ComponentActivity() {
@@ -147,7 +145,7 @@ fun DnslyApp(
     val navController = rememberNavController()
     val isConnected by repository.isVpnConnected.collectAsState()
     val blockedQueries by repository.blockedQueries.collectAsState()
-    var selectedTab by rememberSaveable { mutableStateOf(MainNavTab.SHIELD) }
+    var selectedTab by rememberSaveable { mutableStateOf(MainNavTab.HOME) }
 
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
@@ -156,27 +154,27 @@ fun DnslyApp(
                 bottomBar = {
                     NavigationBar(
                         windowInsets = WindowInsets(0, 0, 0, 0),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        tonalElevation = 3.dp
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp
                     ) {
                         NavigationBarItem(
-                            selected = selectedTab == MainNavTab.SHIELD,
-                            onClick = { selectedTab = MainNavTab.SHIELD },
+                            selected = selectedTab == MainNavTab.HOME,
+                            onClick = { selectedTab = MainNavTab.HOME },
                             icon = {
                                 Icon(
-                                    imageVector = if (selectedTab == MainNavTab.SHIELD) Icons.Filled.Shield else Icons.Outlined.Shield,
-                                    contentDescription = "Shield"
+                                    imageVector = if (selectedTab == MainNavTab.HOME) Icons.Filled.Shield else Icons.Outlined.Shield,
+                                    contentDescription = "Home"
                                 )
                             },
                             label = {
                                 Text(
-                                    "Shield",
-                                    fontWeight = if (selectedTab == MainNavTab.SHIELD) FontWeight.Bold else FontWeight.Medium
+                                    "Home",
+                                    fontWeight = if (selectedTab == MainNavTab.HOME) FontWeight.SemiBold else FontWeight.Normal
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
                                 indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -184,8 +182,8 @@ fun DnslyApp(
                         )
 
                         NavigationBarItem(
-                            selected = selectedTab == MainNavTab.REPORTS,
-                            onClick = { selectedTab = MainNavTab.REPORTS },
+                            selected = selectedTab == MainNavTab.ACTIVITY,
+                            onClick = { selectedTab = MainNavTab.ACTIVITY },
                             icon = {
                                 BadgedBox(
                                     badge = {
@@ -200,20 +198,20 @@ fun DnslyApp(
                                     }
                                 ) {
                                     Icon(
-                                        imageVector = if (selectedTab == MainNavTab.REPORTS) Icons.Filled.BarChart else Icons.Outlined.BarChart,
-                                        contentDescription = "Reports"
+                                        imageVector = if (selectedTab == MainNavTab.ACTIVITY) Icons.Filled.BarChart else Icons.Outlined.BarChart,
+                                        contentDescription = "Activity"
                                     )
                                 }
                             },
                             label = {
                                 Text(
-                                    "Reports",
-                                    fontWeight = if (selectedTab == MainNavTab.REPORTS) FontWeight.Bold else FontWeight.Medium
+                                    "Activity",
+                                    fontWeight = if (selectedTab == MainNavTab.ACTIVITY) FontWeight.SemiBold else FontWeight.Normal
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
                                 indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -229,15 +227,15 @@ fun DnslyApp(
                     label = "TabTransition"
                 ) { tab ->
                     when (tab) {
-                        MainNavTab.SHIELD -> {
+                        MainNavTab.HOME -> {
                             MainScreen(
                                 repository = repository,
                                 onToggleVpn = onToggleVpn,
                                 onNavigateToList = { navController.navigate("list") },
-                                onNavigateToReports = { selectedTab = MainNavTab.REPORTS }
+                                onNavigateToReports = { selectedTab = MainNavTab.ACTIVITY }
                             )
                         }
-                        MainNavTab.REPORTS -> {
+                        MainNavTab.ACTIVITY -> {
                             ReportsScreen(
                                 repository = repository
                             )

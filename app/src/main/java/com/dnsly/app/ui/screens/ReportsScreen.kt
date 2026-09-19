@@ -1,7 +1,6 @@
 package com.dnsly.app.ui.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DataSaverOn
@@ -55,13 +55,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.dnsly.app.data.DnsRepository
 import com.dnsly.app.model.QueryLog
 import com.dnsly.app.ui.components.reports.ActivityChartCard
@@ -96,9 +94,8 @@ fun ReportsScreen(
     var isLogsExpanded by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    // Compute top blocked domains leaderboard
+    // Top blocked domains
     val topBlocked = remember(queryLogs) {
         queryLogs.filter { it.isBlocked }
             .groupingBy { it.domain }
@@ -108,7 +105,7 @@ fun ReportsScreen(
             .take(5)
     }
 
-    // Filter query logs according to search text and filter chip
+    // Filter query logs
     val filteredLogs = remember(queryLogs, searchQuery, activeFilter) {
         queryLogs.filter { log ->
             val matchesSearch = searchQuery.isBlank() || log.domain.contains(searchQuery.trim(), ignoreCase = true)
@@ -125,7 +122,6 @@ fun ReportsScreen(
         if (isLogsExpanded) filteredLogs.take(30) else filteredLogs.take(6)
     }
 
-    // Saved data calculation (~50KB per prevented payload)
     val savedDataKb = blockedQueries * 50
     val savedDataString = if (savedDataKb >= 1024) {
         String.format(Locale.US, "%.1f MB", savedDataKb / 1024f)
@@ -137,7 +133,7 @@ fun ReportsScreen(
         ((blockedQueries.toFloat() / totalQueries) * 100).toInt()
     } else 0
 
-    // Inspection Bottom Sheet
+    // Inspection Sheet
     if (selectedLogForInspection != null) {
         ModalBottomSheet(
             onDismissRequest = { selectedLogForInspection = null },
@@ -167,19 +163,21 @@ fun ReportsScreen(
         }
     }
 
-    // Clear Logs Confirmation Dialog
+    // Clear Dialog
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
             title = {
                 Text(
-                    text = "Clear Reports & Logs",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    text = "Clear activity data",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             },
             text = {
                 Text(
-                    text = "You can clear the active query stream logs, or reset all cumulative statistics back to zero.",
+                    text = "Clear the query log, or reset all statistics back to zero.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -189,14 +187,15 @@ fun ReportsScreen(
                     onClick = {
                         repository.resetAllStats()
                         showClearDialog = false
-                        Toast.makeText(context, "All stats & logs reset", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "All data reset", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
-                    )
+                    ),
+                    shape = CircleShape
                 ) {
-                    Text("Reset All")
+                    Text("Reset all")
                 }
             },
             dismissButton = {
@@ -204,39 +203,34 @@ fun ReportsScreen(
                     onClick = {
                         repository.clearLogs()
                         showClearDialog = false
-                        Toast.makeText(context, "Query stream logs cleared", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Logs cleared", Toast.LENGTH_SHORT).show()
                     }
                 ) {
-                    Text("Clear Stream Only")
+                    Text("Clear logs only")
                 }
             }
         )
     }
 
     Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Security Reports",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Live telemetry & query analytics",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Activity",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 },
                 actions = {
                     IconButton(onClick = { showClearDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "Clear logs",
+                            contentDescription = "Clear",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -244,38 +238,37 @@ fun ReportsScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                scrollBehavior = scrollBehavior
+                )
             )
         }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
+                start = 20.dp,
+                end = 20.dp,
                 top = innerPadding.calculateTopPadding() + 8.dp,
-                bottom = 24.dp
+                bottom = 32.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 4 KPI Summary Cards (2x2 Grid)
+            // KPI Grid (2x2)
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         KpiCard(
-                            title = "TOTAL QUERIES",
+                            title = "Total queries",
                             value = totalQueries.toString(),
-                            subtext = "Encrypted port 53",
+                            subtext = "All DNS lookups",
                             icon = Icons.Default.Language,
                             accentColor = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f)
                         )
                         KpiCard(
-                            title = "THREATS BLOCKED",
+                            title = "Blocked",
                             value = blockedQueries.toString(),
                             subtext = "$blockPercentage% block rate",
                             badge = if (blockedQueries > 0) "$blockPercentage%" else null,
@@ -287,18 +280,18 @@ fun ReportsScreen(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         KpiCard(
-                            title = "DATA SAVED",
+                            title = "Data saved",
                             value = savedDataString,
-                            subtext = "Prevented payloads",
+                            subtext = "From blocked ads",
                             icon = Icons.Default.DataSaverOn,
                             accentColor = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.weight(1f)
                         )
                         KpiCard(
-                            title = "RESOLVER PING",
+                            title = "Resolver",
                             value = if (selectedServer.latencyMs != null) "${selectedServer.latencyMs} ms" else "Fast",
                             subtext = selectedServer.name.take(15),
                             icon = Icons.Default.Speed,
@@ -309,29 +302,22 @@ fun ReportsScreen(
                 }
             }
 
-            // Activity Timeline Chart
+            // Chart
             item {
                 ActivityChartCard(queryLogs = queryLogs)
             }
 
-            // Top Blocked Domains Leaderboard Header
+            // Top Blocked
             item {
-                Column {
-                    Text(
-                        text = "Top Blocked Trackers",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Highest volume advertising & telemetry hosts intercepted",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "Top blocked domains",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
 
-            // Top Blocked Domains Leaderboard Card
             item {
                 TopBlockedTrackersCard(
                     topBlocked = topBlocked,
@@ -342,40 +328,42 @@ fun ReportsScreen(
                 )
             }
 
-            // Recent Activity Feed Header & Controls
+            // Recent Activity
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Recent DNS Activity",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            text = "Recent queries",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold
+                            ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${filteredLogs.size} logs recorded",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "${filteredLogs.size} total",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    // Search Bar
+                    // Search
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = {
                             Text(
-                                "Filter by domain (e.g. google, telemetry...)",
+                                "Search domains...",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
@@ -384,19 +372,19 @@ fun ReportsScreen(
                                 IconButton(onClick = { searchQuery = "" }) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
-                                        contentDescription = "Clear search",
+                                        contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
                         },
                         singleLine = true,
-                        shape = MaterialTheme.shapes.medium,
+                        shape = CircleShape,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -413,7 +401,7 @@ fun ReportsScreen(
                             selected = activeFilter == QueryFilter.ALL,
                             onClick = { activeFilter = QueryFilter.ALL },
                             label = { Text("All (${queryLogs.size})") },
-                            shape = MaterialTheme.shapes.medium,
+                            shape = CircleShape,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -422,7 +410,7 @@ fun ReportsScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = activeFilter == QueryFilter.ALL,
-                                borderColor = MaterialTheme.colorScheme.outlineVariant
+                                borderColor = MaterialTheme.colorScheme.outline
                             )
                         )
 
@@ -430,7 +418,7 @@ fun ReportsScreen(
                             selected = activeFilter == QueryFilter.BLOCKED,
                             onClick = { activeFilter = QueryFilter.BLOCKED },
                             label = { Text("Blocked ($blockedCount)") },
-                            shape = MaterialTheme.shapes.medium,
+                            shape = CircleShape,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.error,
@@ -439,7 +427,7 @@ fun ReportsScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = activeFilter == QueryFilter.BLOCKED,
-                                borderColor = MaterialTheme.colorScheme.outlineVariant
+                                borderColor = MaterialTheme.colorScheme.outline
                             )
                         )
 
@@ -447,7 +435,7 @@ fun ReportsScreen(
                             selected = activeFilter == QueryFilter.PASSED,
                             onClick = { activeFilter = QueryFilter.PASSED },
                             label = { Text("Passed ($passedCount)") },
-                            shape = MaterialTheme.shapes.medium,
+                            shape = CircleShape,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.tertiary,
@@ -456,43 +444,45 @@ fun ReportsScreen(
                             border = FilterChipDefaults.filterChipBorder(
                                 enabled = true,
                                 selected = activeFilter == QueryFilter.PASSED,
-                                borderColor = MaterialTheme.colorScheme.outlineVariant
+                                borderColor = MaterialTheme.colorScheme.outline
                             )
                         )
                     }
                 }
             }
 
-            // Recent Queries Stream
+            // Query Log Rows
             if (displayLogs.isEmpty()) {
                 item {
                     Card(
                         shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(24.dp),
+                                .padding(28.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FilterList,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(36.dp)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(40.dp)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = if (queryLogs.isEmpty()) "No queries recorded yet" else "No queries matching filter",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                text = if (queryLogs.isEmpty()) "No queries yet" else "No matching queries",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = if (queryLogs.isEmpty()) "Connect VPN to monitor real-time network requests" else "Try clearing your search query",
+                                text = if (queryLogs.isEmpty()) "Connect to start monitoring" else "Try changing your search",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -507,7 +497,6 @@ fun ReportsScreen(
                     )
                 }
 
-                // Expand / Collapse Toggle Button
                 if (filteredLogs.size > 6) {
                     item {
                         TextButton(
@@ -517,12 +506,14 @@ fun ReportsScreen(
                             Icon(
                                 imageVector = if (isLogsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isLogsExpanded) "Show Less Recent Queries" else "Show More (${filteredLogs.size - 6} more)",
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                                text = if (isLogsExpanded) "Show less" else "Show more (${filteredLogs.size - 6} more)",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Medium
+                                )
                             )
                         }
                     }

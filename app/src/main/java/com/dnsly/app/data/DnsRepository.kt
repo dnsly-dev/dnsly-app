@@ -166,9 +166,12 @@ class DnsRepository(private val context: Context) {
         val newTotal = _totalQueries.value + 1
         _totalQueries.value = newTotal
 
-        if (log.isBlocked) {
-            val newBlocked = _blockedQueries.value + 1
-            _blockedQueries.value = newBlocked
+        val newBlocked = if (log.isBlocked) {
+            val count = _blockedQueries.value + 1
+            _blockedQueries.value = count
+            count
+        } else {
+            _blockedQueries.value
         }
 
         // Asynchronously persist to SQLite WAL database and stats
@@ -176,6 +179,7 @@ class DnsRepository(private val context: Context) {
             database.insertLog(log)
             prefs.edit()
                 .putLong("stat_total_queries", newTotal)
+                .putLong("stat_blocked_queries", newBlocked)
                 .apply()
         }
     }

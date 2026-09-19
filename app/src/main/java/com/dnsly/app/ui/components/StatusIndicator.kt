@@ -40,8 +40,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @Composable
 fun PowerButton(
@@ -53,7 +53,7 @@ fun PowerButton(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.93f else 1f,
+        targetValue = if (isPressed) 0.94f else 1f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
         label = "press_scale"
     )
@@ -61,32 +61,34 @@ fun PowerButton(
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = if (isConnected) 1.22f else 1.0f,
+        targetValue = if (isConnected) 1.15f else 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
+            animation = tween(2200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_scale"
     )
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = if (isConnected) 0.25f else 0.0f,
+        initialValue = if (isConnected) 0.18f else 0.0f,
         targetValue = 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
+            animation = tween(2200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "pulse_alpha"
     )
 
-    val emerald = Color(0xFF10B981)
+    val googleBlue = MaterialTheme.colorScheme.primary
+    val googleGreen = MaterialTheme.colorScheme.tertiary
+
     val buttonBg by animateColorAsState(
-        targetValue = if (isConnected) emerald else Color.White,
-        animationSpec = tween(300),
+        targetValue = if (isConnected) googleGreen else Color.White,
+        animationSpec = tween(350),
         label = "bg_color"
     )
     val iconColor by animateColorAsState(
-        targetValue = if (isConnected) Color.White else Color(0xFF0F172A),
-        animationSpec = tween(300),
+        targetValue = if (isConnected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(350),
         label = "icon_color"
     )
 
@@ -96,39 +98,41 @@ fun PowerButton(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(180.dp)
+            modifier = Modifier.size(160.dp)
         ) {
-            // Ambient Aura (Only visible when connected)
+            // Gentle pulse ring when connected
             if (isConnected) {
                 Box(
                     modifier = Modifier
-                        .size(170.dp)
+                        .size(150.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(emerald.copy(alpha = pulseAlpha))
+                        .background(googleGreen.copy(alpha = pulseAlpha))
                 )
             }
 
-            // Main Tactile Button
+            // Main Button
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(134.dp)
+                    .size(120.dp)
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
                     }
                     .shadow(
-                        elevation = if (isConnected) 8.dp else 3.dp,
+                        elevation = if (isConnected) 6.dp else 2.dp,
                         shape = CircleShape,
-                        spotColor = if (isConnected) emerald.copy(alpha = 0.4f) else Color(0x1A000000)
+                        spotColor = if (isConnected) googleGreen.copy(alpha = 0.3f) else Color(0x0D000000)
                     )
                     .clip(CircleShape)
                     .background(buttonBg)
-                    .border(
-                        width = if (isConnected) 0.dp else 1.5.dp,
-                        color = Color(0xFFE2E8F0),
-                        shape = CircleShape
+                    .then(
+                        if (!isConnected) Modifier.border(
+                            width = 1.5.dp,
+                            color = MaterialTheme.colorScheme.outline,
+                            shape = CircleShape
+                        ) else Modifier
                     )
                     .clickable(
                         interactionSource = interactionSource,
@@ -140,27 +144,22 @@ fun PowerButton(
                     imageVector = if (isConnected) Icons.Default.Shield else Icons.Default.PowerSettingsNew,
                     contentDescription = if (isConnected) "Disconnect" else "Connect",
                     tint = iconColor,
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(48.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Clean Status Pill with Pulsing Live Dot
+        // Status Pill
         Box(
             modifier = Modifier
                 .clip(CircleShape)
                 .background(
-                    if (isConnected) emerald.copy(alpha = 0.1f)
-                    else Color(0xFFF1F5F9)
+                    if (isConnected) googleGreen.copy(alpha = 0.08f)
+                    else MaterialTheme.colorScheme.surfaceContainerHigh
                 )
-                .border(
-                    width = 1.dp,
-                    color = if (isConnected) emerald.copy(alpha = 0.3f) else Color(0xFFE2E8F0),
-                    shape = CircleShape
-                )
-                .padding(horizontal = 14.dp, vertical = 6.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -168,18 +167,21 @@ fun PowerButton(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(7.dp)
+                        .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (isConnected) emerald else Color(0xFF94A3B8))
+                        .background(
+                            if (isConnected) googleGreen
+                            else MaterialTheme.colorScheme.outline
+                        )
                 )
-                Spacer(modifier = Modifier.width(7.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isConnected) "SHIELD ACTIVE" else "NOT CONNECTED",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontSize = 11.sp,
-                        letterSpacing = 0.8.sp
+                    text = if (isConnected) "Protected" else "Not connected",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Medium
                     ),
-                    color = if (isConnected) emerald else Color(0xFF64748B)
+                    color = if (isConnected) googleGreen
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

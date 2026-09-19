@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
@@ -23,7 +22,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -46,15 +44,15 @@ fun DomainDetailSheetContent(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val fullDateFormat = remember { SimpleDateFormat("EEEE, MMM d, yyyy • hh:mm:ss a", Locale.getDefault()) }
+    val fullDateFormat = remember { SimpleDateFormat("EEEE, MMM d, yyyy · hh:mm:ss a", Locale.getDefault()) }
     val formattedDate = remember(log.timestamp) { fullDateFormat.format(Date(log.timestamp)) }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .padding(horizontal = 24.dp, vertical = 20.dp)
     ) {
-        // Icon + Domain Header
+        // Header
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
@@ -82,58 +80,56 @@ fun DomainDetailSheetContent(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = log.domain,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (log.isBlocked) MaterialTheme.colorScheme.errorContainer
-                    else MaterialTheme.colorScheme.tertiaryContainer
-                ) {
-                    Text(
-                        text = if (log.isBlocked) "THREAT INTERCEPTED" else "SAFE & RESOLVED",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = if (log.isBlocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (log.isBlocked) "Blocked" else "Resolved",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = if (log.isBlocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        // Technical Spec Rows
-        DetailSpecRow(label = "Action / Status", value = if (log.isBlocked) "Blocked (NXDOMAIN returned)" else "Resolved to IP")
+        // Details
+        DetailSpecRow(label = "Status", value = if (log.isBlocked) "Blocked" else "Resolved")
         DetailSpecRow(
             label = "Protocol",
-            value = if (log.protocol == "DoH") "DNS-over-HTTPS (RFC 8484, TLS 1.3)"
-            else if (log.isBlocked) "Local Synthetic NXDOMAIN"
-            else "Standard UDP (port 53)"
+            value = if (log.isBlocked) "Local interception" else "UDP (port 53)"
         )
         DetailSpecRow(label = "Reason", value = log.reason)
-        DetailSpecRow(label = "Query Type", value = "Standard DNS ${log.queryType} record")
-        DetailSpecRow(label = "Timestamp", value = formattedDate)
-        DetailSpecRow(label = "Latency", value = if (log.isBlocked) "0 ms (instant on-device interception)" else "${log.latencyMs} ms")
+        DetailSpecRow(label = "Query type", value = log.queryType)
+        DetailSpecRow(label = "Time", value = formattedDate)
+        DetailSpecRow(
+            label = "Latency",
+            value = if (log.isBlocked) "Instant" else "${log.latencyMs} ms"
+        )
         if (log.upstreamServer.isNotBlank()) {
-            DetailSpecRow(label = "Upstream Resolver", value = log.upstreamServer)
+            DetailSpecRow(label = "Resolver", value = log.upstreamServer)
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         // Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
                 onClick = onCopyDomain,
-                shape = RoundedCornerShape(16.dp),
+                shape = CircleShape,
                 modifier = Modifier
                     .weight(1f)
-                    .height(50.dp)
+                    .height(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.ContentCopy,
@@ -141,18 +137,18 @@ fun DomainDetailSheetContent(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Copy Domain")
+                Text("Copy")
             }
 
             Button(
                 onClick = onFilterInFeed,
-                shape = RoundedCornerShape(16.dp),
+                shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .height(50.dp)
+                    .height(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.FilterList,
@@ -160,7 +156,7 @@ fun DomainDetailSheetContent(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Filter in Feed")
+                Text("Filter")
             }
         }
 
@@ -177,21 +173,23 @@ fun DetailSpecRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f)
+            modifier = Modifier.weight(0.35f)
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Medium
+            ),
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(0.6f)
+            modifier = Modifier.weight(0.65f)
         )
     }
 }

@@ -51,4 +51,55 @@ class DnsPacketParserTest {
         assertTrue("Must have QR=1 response flag", (flags and 0x8000) != 0)
         assertEquals(3, flags and 0x000F) // NXDOMAIN RCODE = 3
     }
+
+    @Test
+    fun testIsSinkholedResponse() {
+        // Construct DNS response containing 0.0.0.0 (AdGuard/NextDNS sinkhole)
+        val sinkholeResp = byteArrayOf(
+            0x12, 0x34,                   // ID
+            0x81.toByte(), 0x80.toByte(), // QR=1, RD=1, RA=1, RCODE=0
+            0x00, 0x01,                   // QDCOUNT: 1
+            0x00, 0x01,                   // ANCOUNT: 1
+            0x00, 0x00,                   // NSCOUNT: 0
+            0x00, 0x00,                   // ARCOUNT: 0
+            // Question: "ads.com"
+            0x03, 0x61, 0x64, 0x73,
+            0x03, 0x63, 0x6f, 0x6d,
+            0x00,
+            0x00, 0x01, // Type A
+            0x00, 0x01, // Class IN
+            // Answer:
+            0xC0.toByte(), 0x0C.toByte(), // Compression pointer to question
+            0x00, 0x01,                   // Type A
+            0x00, 0x01,                   // Class IN
+            0x00, 0x00, 0x00, 0x3C,       // TTL 60
+            0x00, 0x04,                   // RDLENGTH 4
+            0x00, 0x00, 0x00, 0x00        // 0.0.0.0 (Sinkholed IP)
+        )
+
+        assertTrue(DnsPacketParser.isSinkholedResponse(sinkholeResp))
+
+        // Normal response with real IP (142.250.190.46)
+        val normalResp = byteArrayOf(
+            0x12, 0x34,
+            0x81.toByte(), 0x80.toByte(),
+            0x00, 0x01,
+            0x00, 0x01,
+            0x00, 0x00,
+            0x00, 0x00,
+            0x06, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65,
+            0x03, 0x63, 0x6f, 0x6d,
+            0x00,
+            0x00, 0x01,
+            0x00, 0x01,
+            0xC0.toByte(), 0x0C.toByte(),
+            0x00, 0x01,
+            0x00, 0x01,
+            0x00, 0x00, 0x01, 0x2C,
+            0x00, 0x04,
+            142.toByte(), 250.toByte(), 190.toByte(), 46.toByte()
+        )
+
+        org.junit.Assert.assertFalse(DnsPacketParser.isSinkholedResponse(normalResp))
+    }
 }

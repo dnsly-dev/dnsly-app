@@ -22,15 +22,14 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -44,8 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.dnsly.app.data.DnsRepository
 import com.dnsly.app.model.DnsServer
 import com.dnsly.app.ui.components.DnsCard
@@ -71,7 +70,14 @@ fun SpeedTestScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Speed Benchmark") },
+                title = {
+                    Text(
+                        "Speed test",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -90,40 +96,51 @@ fun SpeedTestScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 20.dp)
         ) {
-            // Action Banner Card
-            ElevatedCard(
+            // Action Card
+            Card(
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Speed,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column {
                             Text(
-                                text = "DNS Ping & Latency Test",
-                                style = MaterialTheme.typography.titleMedium,
+                                text = "DNS latency test",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Test response time to all resolvers concurrently",
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = "Measure response time for all resolvers",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
                         onClick = {
@@ -133,7 +150,7 @@ fun SpeedTestScreen(
                             }
                         },
                         enabled = !isTesting,
-                        shape = MaterialTheme.shapes.medium,
+                        shape = CircleShape,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (isTesting) {
@@ -143,27 +160,28 @@ fun SpeedTestScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text("Benchmarking resolvers...")
+                            Text("Testing...")
                         } else {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Run Speed Test")
+                            Text("Run test")
                         }
                     }
                 }
             }
 
-            // Fastest recommendation card if benchmark was run
+            // Fastest result
             if (fastestServer != null && !isTesting) {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedCard(
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
                     shape = MaterialTheme.shapes.medium,
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                     ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -171,24 +189,26 @@ fun SpeedTestScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp)
+                            .padding(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Bolt,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(24.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
                                     text = "Fastest: ${fastestServer.name}",
-                                    style = MaterialTheme.typography.titleSmall,
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Response time: ${fastestServer.latencyMs}ms",
+                                    text = "${fastestServer.latencyMs}ms response",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -197,26 +217,28 @@ fun SpeedTestScreen(
 
                         FilledTonalButton(
                             onClick = { onSelectServer(fastestServer) },
-                            shape = MaterialTheme.shapes.small
+                            shape = CircleShape
                         ) {
-                            Text("Connect")
+                            Text("Use")
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "BENCHMARK RESULTS (${testedServers.size} TESTED)",
-                style = MaterialTheme.typography.labelMedium,
+                text = "Results (${testedServers.size} tested)",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.Medium
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             LazyColumn(
-                contentPadding = PaddingValues(bottom = 30.dp),
+                contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -229,7 +251,7 @@ fun SpeedTestScreen(
                                 .padding(top = 40.dp)
                         ) {
                             Text(
-                                text = "Tap 'Run Speed Test' above to measure DNS ping.",
+                                text = "Tap 'Run test' to measure DNS latency",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -244,7 +266,7 @@ fun SpeedTestScreen(
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(28.dp)
+                                    .size(30.dp)
                                     .clip(CircleShape)
                                     .background(
                                         if (index == 0) MaterialTheme.colorScheme.primaryContainer
@@ -253,8 +275,10 @@ fun SpeedTestScreen(
                             ) {
                                 Text(
                                     text = "#${index + 1}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (index == 0) MaterialTheme.colorScheme.onPrimaryContainer
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = if (index == 0) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
