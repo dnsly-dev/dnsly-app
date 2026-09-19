@@ -222,7 +222,7 @@ fun MainScreen(
 }
 
 // ═══════════════════════════════════════════
-// Hero Status Section — Clean, centered, Google-style
+// Hero Status Section — Clean, centered, Google-style with Dino Runner
 // ═══════════════════════════════════════════
 @Composable
 private fun HeroStatusSection(
@@ -231,14 +231,36 @@ private fun HeroStatusSection(
     onToggle: () -> Unit,
     onOpenDnsSheet: () -> Unit
 ) {
+    var isConnectingTransient by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
+        // Interactive Chrome Dino Runner Stage
+        com.dnsly.app.ui.components.DinoRunnerStage(
+            isConnected = isConnected,
+            isConnecting = isConnectingTransient,
+            onTap = {
+                // Tapping stage triggers jump and spring feedback
+            },
+            modifier = Modifier.padding(bottom = 20.dp)
+        )
+
         // Power button
         PowerButton(
             isConnected = isConnected,
-            onClick = onToggle
+            onClick = {
+                if (!isConnected) {
+                    isConnectingTransient = true
+                    coroutineScope.launch {
+                        kotlinx.coroutines.delay(1000)
+                        isConnectingTransient = false
+                    }
+                }
+                onToggle()
+            }
         )
 
         Spacer(modifier = Modifier.height(20.dp))
