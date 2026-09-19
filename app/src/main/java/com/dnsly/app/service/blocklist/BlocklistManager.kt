@@ -297,6 +297,8 @@ class BlocklistManager private constructor(private val context: Context) {
         prefs.edit().putBoolean("shield_enabled", enabled).apply()
         scope.launch {
             recompileBlocklist()
+            val repository = com.dnsly.app.data.DnsRepository.getInstance(context)
+            com.dnsly.app.service.api.DnslyApiClient.getInstance(context).scheduleHeartbeat(repository, force = true)
         }
     }
 

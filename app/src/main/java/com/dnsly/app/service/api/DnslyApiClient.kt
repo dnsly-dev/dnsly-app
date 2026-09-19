@@ -41,13 +41,35 @@ class DnslyApiClient private constructor(private val context: Context) {
     fun scheduleHeartbeat(repository: DnsRepository, force: Boolean = false) {
         scope.launch {
             val lastSync = prefs.getLong("last_heartbeat_time", 0L)
+            val lastTotal = prefs.getLong("last_heartbeat_total", -1L)
+            val lastBlocked = prefs.getLong("last_heartbeat_blocked", -1L)
+            val currentTotal = repository.totalQueries.value
+            val currentBlocked = repository.blockedQueries.value
             val now = System.currentTimeMillis()
-            if (force || (now - lastSync) >= COOLDOWN_MS) {
+
+            val hasChanged = (currentTotal != lastTotal || currentBlocked != lastBlocked)
+            val thresholdMet = (currentTotal - lastTotal >= 10 || currentBlocked - lastBlocked >= 3)
+            val minIntervalElapsed = (now - lastSync) >= MIN_SYNC_INTERVAL_MS
+            val cooldownElapsed = (now - lastSync) >= COOLDOWN_MS
+
+            if (force || (minIntervalElapsed && thresholdMet) || (minIntervalElapsed && hasChanged && cooldownElapsed) || lastSync == 0L) {
                 sendHeartbeat(repository)
             } else {
-                val remainingMins = ((COOLDOWN_MS - (now - lastSync)) / 60000)
-                Log.d(TAG, "Heartbeat throttled by 1-hour cooldown. Next sync in $remainingMins minutes.")
+                Log.d(TAG, "Heartbeat sync skipped (cooldown/threshold active).")
             }
+        }
+    }
+
+    fun onQueryRecorded(repository: DnsRepository) {
+        val currentTotal = repository.totalQueries.value
+        val currentBlocked = repository.blockedQueries.value
+        val lastTotal = prefs.getLong("last_heartbeat_total", 0L)
+        val lastBlocked = prefs.getLong("last_heartbeat_blocked", 0L)
+        val lastSync = prefs.getLong("last_heartbeat_time", 0L)
+        val now = System.currentTimeMillis()
+
+        if ((currentTotal - lastTotal >= 10 || currentBlocked - lastBlocked >= 3) && (now - lastSync) >= MIN_SYNC_INTERVAL_MS) {
+            scheduleHeartbeat(repository, force = true)
         }
     }
 
@@ -55,7 +77,7 @@ class DnslyApiClient private constructor(private val context: Context) {
         try {
             val blocklistManager = BlocklistManager.getInstance(context)
             val selectedServer = repository.selectedServer.value
-            val isShieldActive = blocklistManager.isShieldEnabled.value
+            val isShieldActive = repository.isVpnConnected.value && blocklistManager.isShieldEnabled.value
             val totalCount = repository.totalQueries.value
             val blockedCount = repository.blockedQueries.value
 
@@ -85,8 +107,12 @@ class DnslyApiClient private constructor(private val context: Context) {
 
             httpClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
-                    Log.d(TAG, "Heartbeat successfully synchronized with DNSly API")
-                    prefs.edit().putLong("last_heartbeat_time", System.currentTimeMillis()).apply()
+                    Log.d(TAG, "Heartbeat successfully synchronized with DNSly API (Total: $totalCount, Blocked: $blockedCount)")
+                    prefs.edit()
+                        .putLong("last_heartbeat_time", System.currentTimeMillis())
+                        .putLong("last_heartbeat_total", totalCount)
+                        .putLong("last_heartbeat_blocked", blockedCount)
+                        .apply()
                     true
                 } else {
                     Log.w(TAG, "Heartbeat sync failed with HTTP ${response.code}")
@@ -103,7 +129,8 @@ class DnslyApiClient private constructor(private val context: Context) {
         const val BASE_URL = "https://api.dnsly.shovon.bd/"
         const val API_KEY = "cf1a5804f6a44c45da05b04dda52f8bc75242cdf0c827db5fa2aa94dd8bce8a7"
         private const val TAG = "DnslyApiClient"
-        private const val COOLDOWN_MS = 60 * 60 * 1000L // 1-Hour Cooldown
+        private const val MIN_SYNC_INTERVAL_MS = 15 * 1000L // Min 15s between syncs to debounce
+        private const val COOLDOWN_MS = 2 * 60 * 1000L // 2-Minute periodic cooldown
 
         @Volatile
         private var INSTANCE: DnslyApiClient? = null

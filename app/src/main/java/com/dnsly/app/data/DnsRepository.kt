@@ -107,6 +107,7 @@ class DnsRepository(private val context: Context) {
 
     fun setVpnConnected(connected: Boolean) {
         _isVpnConnected.value = connected
+        com.dnsly.app.service.api.DnslyApiClient.getInstance(context).scheduleHeartbeat(this, force = true)
     }
 
     fun addCustomServer(
@@ -181,6 +182,9 @@ class DnsRepository(private val context: Context) {
                 .putLong("stat_total_queries", newTotal)
                 .putLong("stat_blocked_queries", newBlocked)
                 .apply()
+
+            // Trigger telemetry sync if query/block thresholds are met
+            com.dnsly.app.service.api.DnslyApiClient.getInstance(context).onQueryRecorded(this@DnsRepository)
         }
     }
 

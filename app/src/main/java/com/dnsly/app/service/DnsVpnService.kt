@@ -461,6 +461,11 @@ class DnsVpnService : VpnService() {
         vpnInterface = null
         repository.setVpnConnected(false)
         stopForeground(STOP_FOREGROUND_REMOVE)
+
+        // Sync final query counts when VPN is paused or stopped
+        if (::repository.isInitialized) {
+            com.dnsly.app.service.api.DnslyApiClient.getInstance(applicationContext).scheduleHeartbeat(repository, force = true)
+        }
     }
 
     private fun createNotificationChannel() {
