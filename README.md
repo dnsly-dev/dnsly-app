@@ -83,7 +83,7 @@ Connect your Android device with USB debugging enabled or start an emulator:
 
 The application connects to the DNSly backend API for remote configuration updates and anonymized telemetry heartbeats.
 
-- **Default API Endpoint**: `https://api.dnsly.shovon.bd` (or local `http://10.0.2.2:3000` when running in Android Emulator)
+- **Default API Endpoint**: `https://dnsly.shovon.bd` (or local `http://10.0.2.2:3000` when running in Android Emulator)
 - **Client Authentication**: API calls send the required `x-api-key` header to authenticate with the server.
 - **Sync Schedule**: WorkManager periodically triggers heartbeat telemetry sync every hour when network is available.
 

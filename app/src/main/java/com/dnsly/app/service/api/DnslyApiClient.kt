@@ -161,7 +161,7 @@ class DnslyApiClient private constructor(private val context: Context) {
     }
 
     companion object {
-        const val BASE_URL = "https://api.dnsly.shovon.bd/"
+        const val BASE_URL = "https://dnsly.shovon.bd/"
         const val API_KEY = "cf1a5804f6a44c45da05b04dda52f8bc75242cdf0c827db5fa2aa94dd8bce8a7"
         private const val TAG = "DnslyApiClient"
         private const val MIN_SYNC_INTERVAL_MS = 15 * 1000L // Min 15s between syncs to debounce
