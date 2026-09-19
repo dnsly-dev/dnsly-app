@@ -48,7 +48,7 @@ class DnsRepository(private val context: Context) {
 
     init {
         scope.launch {
-            val stored = database.getRecentLogs(200)
+            val stored = database.getRecentLogs(1000)
             synchronized(logList) {
                 logList.clear()
                 logList.addAll(stored)
@@ -157,7 +157,7 @@ class DnsRepository(private val context: Context) {
     fun recordQuery(log: QueryLog) {
         val updatedList = synchronized(logList) {
             logList.add(0, log)
-            while (logList.size > 200) {
+            while (logList.size > 1000) {
                 logList.removeAt(logList.size - 1)
             }
             logList.toList()

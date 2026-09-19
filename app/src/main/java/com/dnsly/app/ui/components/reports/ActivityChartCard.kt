@@ -51,9 +51,11 @@ import java.util.Locale
 import kotlin.math.max
 
 enum class ChartTimeRange(val label: String, val durationMs: Long, val bucketCount: Int) {
-    LAST_15M("15m", 15 * 60 * 1000L, 12),
     LAST_1H("1h", 60 * 60 * 1000L, 12),
-    LAST_24H("24h", 24 * 60 * 60 * 1000L, 12)
+    LAST_6H("6h", 6 * 60 * 60 * 1000L, 12),
+    LAST_24H("24h", 24 * 60 * 60 * 1000L, 12),
+    LAST_7D("7d", 7 * 24 * 60 * 60 * 1000L, 14),
+    LAST_30D("30d", 30L * 24 * 60 * 60 * 1000L, 15)
 }
 
 private data class ChartBucket(
@@ -68,7 +70,7 @@ fun ActivityChartCard(
     queryLogs: List<QueryLog>,
     modifier: Modifier = Modifier
 ) {
-    var selectedRange by remember { mutableStateOf(ChartTimeRange.LAST_15M) }
+    var selectedRange by remember { mutableStateOf(ChartTimeRange.LAST_24H) }
     var selectedPointIndex by remember { mutableStateOf<Int?>(null) }
 
     val buckets = remember(queryLogs, selectedRange) {
@@ -93,9 +95,10 @@ fun ActivityChartCard(
         }
 
         val timeFormat = when (selectedRange) {
-            ChartTimeRange.LAST_15M -> SimpleDateFormat("HH:mm", Locale.US)
-            ChartTimeRange.LAST_1H -> SimpleDateFormat("HH:mm", Locale.US)
-            ChartTimeRange.LAST_24H -> SimpleDateFormat("ha", Locale.US)
+            ChartTimeRange.LAST_1H, ChartTimeRange.LAST_6H -> SimpleDateFormat("HH:mm", Locale.US)
+            ChartTimeRange.LAST_24H -> SimpleDateFormat("HH:mm", Locale.US)
+            ChartTimeRange.LAST_7D -> SimpleDateFormat("EEE", Locale.US)
+            ChartTimeRange.LAST_30D -> SimpleDateFormat("MMM d", Locale.US)
         }
 
         List(count) { i ->

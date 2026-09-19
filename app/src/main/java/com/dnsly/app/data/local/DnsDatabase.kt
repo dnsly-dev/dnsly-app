@@ -34,7 +34,7 @@ class DnsDatabase private constructor(context: Context) : SQLiteOpenHelper(
         private const val COL_REASON = "reason"
         private const val COL_PROTOCOL = "protocol"
 
-        private const val MAX_STORED_LOGS = 1000
+        private const val MAX_STORED_LOGS = 10000
 
         @Volatile
         private var INSTANCE: DnsDatabase? = null
@@ -113,7 +113,7 @@ class DnsDatabase private constructor(context: Context) : SQLiteOpenHelper(
     /**
      * Efficiently loads the latest N query logs ordered by descending timestamp.
      */
-    suspend fun getRecentLogs(limit: Int = 200): List<QueryLog> = withContext(Dispatchers.IO) {
+    suspend fun getRecentLogs(limit: Int = 1000): List<QueryLog> = withContext(Dispatchers.IO) {
         val logs = mutableListOf<QueryLog>()
         val db = readableDatabase
 
