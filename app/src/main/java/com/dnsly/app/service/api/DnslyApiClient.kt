@@ -90,7 +90,7 @@ class DnslyApiClient private constructor(private val context: Context) {
                 put("blockedQueries", blockedCount)
                 put("deviceModel", "${Build.MANUFACTURER} ${Build.MODEL}".trim())
                 put("osVersion", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-                put("countryCode", Locale.getDefault().country.ifBlank { "US" })
+                put("countryCode", detectCountryCode(context))
                 put("cpuArch", Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a")
                 put("timestamp", System.currentTimeMillis())
             }
@@ -123,6 +123,41 @@ class DnslyApiClient private constructor(private val context: Context) {
             Log.e(TAG, "Failed to send telemetry heartbeat: ${e.message}")
             false
         }
+    }
+
+    private fun detectCountryCode(context: Context): String {
+        try {
+            val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+            if (tm != null) {
+                val networkCountry = tm.networkCountryIso
+                if (!networkCountry.isNullOrBlank()) {
+                    return networkCountry.trim().uppercase(Locale.US)
+                }
+                val simCountry = tm.simCountryIso
+                if (!simCountry.isNullOrBlank()) {
+                    return simCountry.trim().uppercase(Locale.US)
+                }
+            }
+        } catch (_: Exception) {
+            // Telephony unavailable
+        }
+
+        try {
+            val localeCountry = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context.resources.configuration.locales.get(0)?.country
+            } else {
+                @Suppress("DEPRECATION")
+                context.resources.configuration.locale?.country
+            }
+            if (!localeCountry.isNullOrBlank()) {
+                return localeCountry.trim().uppercase(Locale.US)
+            }
+        } catch (_: Exception) {
+            // Fallback
+        }
+
+        val defaultCountry = Locale.getDefault().country
+        return if (defaultCountry.isNotBlank()) defaultCountry.uppercase(Locale.US) else "US"
     }
 
     companion object {
