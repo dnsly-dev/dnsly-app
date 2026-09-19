@@ -135,6 +135,7 @@ fun ReportsScreen(
 
     // Inspection Sheet
     if (selectedLogForInspection != null) {
+        val blocklistManager = remember { com.dnsly.app.service.blocklist.BlocklistManager.getInstance(context) }
         ModalBottomSheet(
             onDismissRequest = { selectedLogForInspection = null },
             sheetState = sheetState,
@@ -147,6 +148,10 @@ fun ReportsScreen(
                 onCopyDomain = {
                     clipboardManager.setText(AnnotatedString(log.domain))
                     Toast.makeText(context, "Copied: ${log.domain}", Toast.LENGTH_SHORT).show()
+                },
+                onWhitelistDomain = { domainToAllow ->
+                    blocklistManager.addWhitelistDomain(domainToAllow)
+                    Toast.makeText(context, "Whitelisted $domainToAllow (Never blocked)", Toast.LENGTH_SHORT).show()
                 },
                 onFilterInFeed = {
                     searchQuery = log.domain

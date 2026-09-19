@@ -49,9 +49,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.dnsly.app.data.DnsRepository
 import com.dnsly.app.service.DnsVpnService
+import com.dnsly.app.service.blocklist.BlocklistManager
 import com.dnsly.app.ui.screens.DnsListScreen
 import com.dnsly.app.ui.screens.MainScreen
 import com.dnsly.app.ui.screens.ReportsScreen
+import com.dnsly.app.ui.screens.ShieldScreen
 import com.dnsly.app.ui.theme.DNSlyTheme
 
 enum class MainNavTab {
@@ -232,7 +234,8 @@ fun DnslyApp(
                                 repository = repository,
                                 onToggleVpn = onToggleVpn,
                                 onNavigateToList = { navController.navigate("list") },
-                                onNavigateToReports = { selectedTab = MainNavTab.ACTIVITY }
+                                onNavigateToReports = { selectedTab = MainNavTab.ACTIVITY },
+                                onNavigateToShield = { navController.navigate("shield") }
                             )
                         }
                         MainNavTab.ACTIVITY -> {
@@ -255,6 +258,14 @@ fun DnslyApp(
                     }
                     navController.popBackStack()
                 }
+            )
+        }
+        composable("shield") {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val blocklistManager = androidx.compose.runtime.remember { BlocklistManager.getInstance(context) }
+            ShieldScreen(
+                blocklistManager = blocklistManager,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

@@ -27,6 +27,8 @@ import java.io.FileOutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import com.dnsly.app.service.blocklist.BlocklistEngine
+import com.dnsly.app.service.blocklist.BlocklistManager
 import java.nio.ByteBuffer
 
 class DnsVpnService : VpnService() {
@@ -35,6 +37,7 @@ class DnsVpnService : VpnService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var vpnJob: Job? = null
     private lateinit var repository: DnsRepository
+    private lateinit var blocklistManager: BlocklistManager
     private val dohClient by lazy { DohClient { socket -> protect(socket) } }
 
     companion object {
@@ -48,6 +51,7 @@ class DnsVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         repository = DnsRepository.getInstance(applicationContext)
+        blocklistManager = BlocklistManager.getInstance(applicationContext)
         createNotificationChannel()
     }
 
@@ -145,7 +149,49 @@ class DnsVpnService : VpnService() {
 
                                 val query = DnsPacketParser.parseQuery(queryBytes, 0, queryBytes.size)
                                 if (query != null) {
-                                    // Check ultra-fast in-memory cache for repeat queries (<1ms)
+                                    // 1. Check Local Ad & Tracker Shield
+                                    val isShieldOn = blocklistManager.isShieldEnabled.value
+                                    val isWhitelisted = blocklistManager.isDomainWhitelisted(query.domain)
+                                    val isBlockedLocally = isShieldOn && !isWhitelisted && BlocklistEngine.isBlocked(query.domain)
+
+                                    if (isBlockedLocally) {
+                                        val blockedDnsPayload = DnsPacketParser.createBlockedResponse(
+                                            dnsQueryPayload = queryBytes,
+                                            queryOffset = 0,
+                                            queryLength = queryBytes.size,
+                                            queryType = query.queryType,
+                                            asNxDomain = true,
+                                            ttlSeconds = 60
+                                        )
+
+                                        val responsePacket = buildUdpIpPacket(
+                                            srcIp = dstIp,
+                                            dstIp = srcIp,
+                                            srcPort = dstPort,
+                                            dstPort = srcPort,
+                                            payload = blockedDnsPayload
+                                        )
+
+                                        synchronized(outputStream) {
+                                            outputStream.write(responsePacket)
+                                            outputStream.flush()
+                                        }
+
+                                        repository.recordQuery(
+                                            QueryLog(
+                                                domain = query.domain,
+                                                isBlocked = true,
+                                                queryType = DnsPacketParser.getTypeName(query.queryType),
+                                                upstreamServer = "DNSly Local Shield",
+                                                latencyMs = 0L,
+                                                reason = "Blocked by Local Ad & Tracker Shield",
+                                                protocol = "Shield"
+                                            )
+                                        )
+                                        continue
+                                    }
+
+                                    // 2. Check ultra-fast in-memory cache for repeat queries (<1ms)
                                     val cachedResponse = DnsCache.get(query.domain, query.queryType)
                                     if (cachedResponse != null && cachedResponse.size >= 12) {
                                         // Adapt transaction ID to match current query

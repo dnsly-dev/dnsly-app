@@ -42,6 +42,7 @@ fun DomainDetailSheetContent(
     onCopyDomain: () -> Unit,
     onFilterInFeed: () -> Unit,
     onDismiss: () -> Unit,
+    onWhitelistDomain: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val fullDateFormat = remember { SimpleDateFormat("EEEE, MMM d, yyyy · hh:mm:ss a", Locale.getDefault()) }
@@ -138,6 +139,21 @@ fun DomainDetailSheetContent(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Copy")
+            }
+
+            if (onWhitelistDomain != null) {
+                OutlinedButton(
+                    onClick = {
+                        onWhitelistDomain(log.domain)
+                        onDismiss()
+                    },
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Text("Allow", color = MaterialTheme.colorScheme.primary)
+                }
             }
 
             Button(

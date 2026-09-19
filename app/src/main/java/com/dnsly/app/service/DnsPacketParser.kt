@@ -65,13 +65,15 @@ object DnsPacketParser {
     }
 
     /**
-     * Builds a synthetic NXDOMAIN or 0.0.0.0 response to block a tracker/ad domain.
+     * Builds a synthetic NXDOMAIN or 0.0.0.0 / :: sinkhole response to block a tracker/ad domain.
      */
     fun createBlockedResponse(
         dnsQueryPayload: ByteArray,
-        queryOffset: Int,
-        queryLength: Int,
-        asNxDomain: Boolean = true
+        queryOffset: Int = 0,
+        queryLength: Int = dnsQueryPayload.size,
+        queryType: Int = 1,
+        asNxDomain: Boolean = false,
+        ttlSeconds: Int = 60
     ): ByteArray {
         val queryBuffer = ByteBuffer.wrap(dnsQueryPayload, queryOffset, queryLength)
         val transactionId = queryBuffer.short
@@ -84,7 +86,8 @@ object DnsPacketParser {
             (0x8180).toShort()
         }
 
-        val out = ByteBuffer.allocate(queryLength + 16)
+        val extraBytes = if (!asNxDomain) (if (queryType == 28) 28 else 16) else 0
+        val out = ByteBuffer.allocate(queryLength + extraBytes + 16)
         out.putShort(transactionId)
         out.putShort(responseFlags)
         out.putShort(1.toShort()) // QDCOUNT: 1 question
@@ -99,16 +102,27 @@ object DnsPacketParser {
         out.put(questionBytes)
 
         if (!asNxDomain) {
-            // Add A record with 0.0.0.0 (TTL 300)
             out.putShort(0xC00C.toShort()) // Compression pointer to question name
-            out.putShort(1.toShort())      // Type A
-            out.putShort(1.toShort())      // Class IN
-            out.putInt(300)                // TTL 300s
-            out.putShort(4.toShort())      // Data length 4
-            out.put(0.toByte())
-            out.put(0.toByte())
-            out.put(0.toByte())
-            out.put(0.toByte())
+            if (queryType == 28) {
+                // Type AAAA (IPv6) ::
+                out.putShort(28.toShort())     // Type AAAA
+                out.putShort(1.toShort())      // Class IN
+                out.putInt(ttlSeconds)         // TTL
+                out.putShort(16.toShort())     // Data length 16
+                for (i in 0 until 16) {
+                    out.put(0.toByte())
+                }
+            } else {
+                // Type A (IPv4) 0.0.0.0
+                out.putShort(1.toShort())      // Type A
+                out.putShort(1.toShort())      // Class IN
+                out.putInt(ttlSeconds)         // TTL
+                out.putShort(4.toShort())      // Data length 4
+                out.put(0.toByte())
+                out.put(0.toByte())
+                out.put(0.toByte())
+                out.put(0.toByte())
+            }
         }
 
         val result = ByteArray(out.position())
