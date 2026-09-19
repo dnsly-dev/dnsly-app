@@ -1,6 +1,5 @@
 package com.dnsly.app.ui.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -42,12 +41,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -79,11 +75,11 @@ fun PowerButton(
         label = "press_scale"
     )
 
-    // Dynamic water level: 18% when disconnected, 50% when connecting, 74% when connected
+    // Dynamic water level: 16% when disconnected, 50% when connecting, 72% when connected
     val targetFillLevel = when {
-        isConnecting -> 0.52f
-        isConnected -> 0.74f
-        else -> 0.18f
+        isConnecting -> 0.50f
+        isConnected -> 0.72f
+        else -> 0.16f
     }
 
     val fillLevel by animateFloatAsState(
@@ -92,7 +88,7 @@ fun PowerButton(
         label = "fluid_fill_level"
     )
 
-    // Continuous infinite transitions for organic wave and bubble motion
+    // Continuous infinite transitions for wave and bubble motion
     val infiniteTransition = rememberInfiniteTransition(label = "fluid_waves")
 
     // Foreground wave phase (0 to 2*PI)
@@ -106,7 +102,7 @@ fun PowerButton(
         label = "wave_phase_1"
     )
 
-    // Background wave phase (shifted and different duration for parallax water depth)
+    // Background wave phase
     val wavePhase2 by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = (2 * PI).toFloat(),
@@ -128,61 +124,51 @@ fun PowerButton(
         label = "bubble_progress"
     )
 
-    // Concentric atmospheric ripple scale (1.0 to 1.35)
+    // Concentric atmospheric ripple scale
     val rippleScale1 by infiniteTransition.animateFloat(
         initialValue = 1.0f,
-        targetValue = if (isConnected || isConnecting) 1.32f else 1.0f,
+        targetValue = if (isConnected || isConnecting) 1.28f else 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = FastOutSlowInEasing),
+            animation = tween(2200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "ripple_scale_1"
     )
     val rippleAlpha1 by infiniteTransition.animateFloat(
-        initialValue = if (isConnected || isConnecting) 0.28f else 0.0f,
+        initialValue = if (isConnected || isConnecting) 0.22f else 0.0f,
         targetValue = 0.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = FastOutSlowInEasing),
+            animation = tween(2200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "ripple_alpha_1"
     )
 
-    val rippleScale2 by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = if (isConnected || isConnecting) 1.20f else 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, delayMillis = 400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ripple_scale_2"
-    )
-    val rippleAlpha2 by infiniteTransition.animateFloat(
-        initialValue = if (isConnected || isConnecting) 0.22f else 0.0f,
-        targetValue = 0.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, delayMillis = 400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ripple_alpha_2"
-    )
+    // Exact Theme Colors matching Google Material 3 Design
+    val googleGreen = MaterialTheme.colorScheme.tertiary               // Color(0xFF1E8E3E)
+    val googleGreenLight = Color(0xFF34A853)                           // Vibrant Google Green
+    val googleGreenDark = Color(0xFF137333)                            // Deeper Forest Green
+    val googleBlue = MaterialTheme.colorScheme.primary                 // Color(0xFF1A73E8)
+    val googleBlueLight = Color(0xFF4285F4)                            // Light Google Blue
+    val googleBlueDark = Color(0xFF174EA6)                             // Deep Google Blue
+    val disconnectedWater = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
+    val disconnectedDeep = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f)
 
-    // Color palettes
-    val primaryCyan = Color(0xFF06B6D4)
-    val primaryEmerald = Color(0xFF10B981)
-    val darkEmerald = Color(0xFF059669)
-    val deepCyan = Color(0xFF0891B2)
-    val disconnectedWater = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
-    val disconnectedDeep = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f)
+    // Active wave colors based on state
+    val (activeFgStart, activeFgEnd, activeBgStart, activeBgEnd, activeRippleColor) = when {
+        isConnected -> listOf(googleGreenLight, googleGreen, googleGreen, googleGreenDark, googleGreen)
+        isConnecting -> listOf(googleBlueLight, googleBlue, googleBlue, googleBlueDark, googleBlue)
+        else -> listOf(disconnectedWater, disconnectedWater, disconnectedDeep, disconnectedDeep, Color.Transparent)
+    }
 
     // Pre-calculated static bubble coordinates
     val bubbles = remember {
         listOf(
             Bubble(relX = 0.32f, speed = 0.9f, size = 3.5f, seed = 1.2f),
-            Bubble(relX = 0.50f, speed = 1.1f, size = 4.5f, seed = 2.8f),
+            Bubble(relX = 0.50f, speed = 1.1f, size = 4.2f, seed = 2.8f),
             Bubble(relX = 0.68f, speed = 0.8f, size = 3.0f, seed = 4.1f),
-            Bubble(relX = 0.42f, speed = 1.3f, size = 2.5f, seed = 5.5f),
-            Bubble(relX = 0.60f, speed = 1.0f, size = 3.8f, seed = 0.7f)
+            Bubble(relX = 0.42f, speed = 1.3f, size = 2.4f, seed = 5.5f),
+            Bubble(relX = 0.60f, speed = 1.0f, size = 3.6f, seed = 0.7f)
         )
     }
 
@@ -192,25 +178,16 @@ fun PowerButton(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(190.dp)
+            modifier = Modifier.size(176.dp)
         ) {
-            // ─── Outer Concentric Atmospheric Ripple Rings ───
+            // ─── Outer Concentric Atmospheric Ripple Ring ───
             if (isConnected || isConnecting) {
-                // Outer Ripple 1
                 Box(
                     modifier = Modifier
-                        .size(140.dp)
+                        .size(136.dp)
                         .scale(rippleScale1)
                         .clip(CircleShape)
-                        .background(primaryEmerald.copy(alpha = rippleAlpha1))
-                )
-                // Outer Ripple 2
-                Box(
-                    modifier = Modifier
-                        .size(140.dp)
-                        .scale(rippleScale2)
-                        .clip(CircleShape)
-                        .background(primaryCyan.copy(alpha = rippleAlpha2))
+                        .background(activeRippleColor.copy(alpha = rippleAlpha1))
                 )
             }
 
@@ -218,30 +195,27 @@ fun PowerButton(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(140.dp)
+                    .size(132.dp)
                     .graphicsLayer {
                         scaleX = pressScale
                         scaleY = pressScale
                     }
                     .shadow(
-                        elevation = if (isConnected) 12.dp else 4.dp,
+                        elevation = if (isConnected) 8.dp else 2.dp,
                         shape = CircleShape,
-                        spotColor = if (isConnected) primaryEmerald.copy(alpha = 0.4f) else Color(0x15000000)
+                        spotColor = if (isConnected) googleGreen.copy(alpha = 0.3f) else Color(0x10000000)
                     )
                     .clip(CircleShape)
-                    .background(
-                        if (isConnected) Color(0xFF0F172A)
-                        else MaterialTheme.colorScheme.surface
-                    )
+                    .background(MaterialTheme.colorScheme.surface)
                     .then(
                         if (!isConnected) Modifier.border(
-                            width = 2.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f),
+                            width = 1.5.dp,
+                            color = MaterialTheme.colorScheme.outline,
                             shape = CircleShape
                         ) else Modifier.border(
-                            width = 2.5.dp,
+                            width = 2.dp,
                             brush = Brush.linearGradient(
-                                colors = listOf(primaryCyan.copy(alpha = 0.8f), primaryEmerald.copy(alpha = 0.9f))
+                                colors = listOf(googleGreenLight.copy(alpha = 0.6f), googleGreen.copy(alpha = 0.8f))
                             ),
                             shape = CircleShape
                         )
@@ -256,8 +230,6 @@ fun PowerButton(
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val w = size.width
                     val h = size.height
-                    val circleCenter = Offset(w / 2f, h / 2f)
-                    val circleRadius = w / 2f
 
                     // Clip all fluid drawing strictly to the glass circle
                     val clipCircle = Path().apply {
@@ -267,7 +239,7 @@ fun PowerButton(
                     clipPath(clipCircle) {
                         // 1. Water Level calculation (from bottom upward)
                         val waterBaseY = h * (1f - fillLevel)
-                        val waveAmplitude = if (isConnected || isConnecting) 7.dp.toPx() else 3.dp.toPx()
+                        val waveAmplitude = if (isConnected || isConnecting) 6.dp.toPx() else 3.dp.toPx()
 
                         // 2. Draw Background Wave (Layer 2 - Deep tone)
                         val bgPath = Path().apply {
@@ -285,22 +257,14 @@ fun PowerButton(
                             close()
                         }
 
-                        val bgBrush = if (isConnected || isConnecting) {
-                            Brush.verticalGradient(
-                                colors = listOf(deepCyan.copy(alpha = 0.75f), darkEmerald.copy(alpha = 0.85f)),
-                                startY = waterBaseY,
-                                endY = h
-                            )
-                        } else {
-                            Brush.verticalGradient(
-                                colors = listOf(disconnectedDeep, disconnectedDeep),
-                                startY = waterBaseY,
-                                endY = h
-                            )
-                        }
+                        val bgBrush = Brush.verticalGradient(
+                            colors = listOf(activeBgStart.copy(alpha = 0.75f), activeBgEnd.copy(alpha = 0.85f)),
+                            startY = waterBaseY,
+                            endY = h
+                        )
                         drawPath(bgPath, bgBrush)
 
-                        // 3. Draw Foreground Wave (Layer 1 - Vibrant Emerald/Cyan)
+                        // 3. Draw Foreground Wave (Layer 1 - Vibrant Tone)
                         val fgPath = Path().apply {
                             moveTo(0f, h)
                             lineTo(0f, waterBaseY)
@@ -316,22 +280,11 @@ fun PowerButton(
                             close()
                         }
 
-                        val fgBrush = if (isConnected || isConnecting) {
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    primaryCyan.copy(alpha = 0.88f),
-                                    primaryEmerald.copy(alpha = 0.95f)
-                                ),
-                                startY = waterBaseY - waveAmplitude,
-                                endY = h
-                            )
-                        } else {
-                            Brush.verticalGradient(
-                                colors = listOf(disconnectedWater, disconnectedWater),
-                                startY = waterBaseY - waveAmplitude,
-                                endY = h
-                            )
-                        }
+                        val fgBrush = Brush.verticalGradient(
+                            colors = listOf(activeFgStart.copy(alpha = 0.90f), activeFgEnd.copy(alpha = 0.95f)),
+                            startY = waterBaseY - waveAmplitude,
+                            endY = h
+                        )
                         drawPath(fgPath, fgBrush)
 
                         // 4. Draw Rising Micro-Bubbles
@@ -339,14 +292,14 @@ fun PowerButton(
                             bubbles.forEachIndexed { i, bubble ->
                                 val bubbleCycle = (bubbleProgress * bubble.speed + (i * 0.2f)) % 1f
                                 val bubbleY = h - (bubbleCycle * (h * fillLevel + 10f))
-                                val wobbleX = sin(bubbleCycle * 4 * PI + bubble.seed).toFloat() * 6f
+                                val wobbleX = sin(bubbleCycle * 4 * PI + bubble.seed).toFloat() * 5f
                                 val bubbleX = (w * bubble.relX) + wobbleX
 
                                 // Only draw if submerged beneath current water surface
-                                if (bubbleY > waterBaseY - 4f) {
-                                    val bubbleAlpha = (1f - (waterBaseY / bubbleY).coerceIn(0f, 1f)) * 0.8f
+                                if (bubbleY > waterBaseY - 2f) {
+                                    val bubbleAlpha = (1f - (waterBaseY / bubbleY).coerceIn(0f, 1f)) * 0.75f
                                     drawCircle(
-                                        color = Color.White.copy(alpha = bubbleAlpha.coerceIn(0.2f, 0.8f)),
+                                        color = Color.White.copy(alpha = bubbleAlpha.coerceIn(0.15f, 0.75f)),
                                         radius = bubble.size.dp.toPx(),
                                         center = Offset(bubbleX, bubbleY)
                                     )
@@ -356,16 +309,16 @@ fun PowerButton(
 
                         // 5. Glass Specular Top Highlight (Curved 3D Glass Arc)
                         val glassGloss = Path().apply {
-                            moveTo(w * 0.22f, h * 0.16f)
+                            moveTo(w * 0.24f, h * 0.16f)
                             cubicTo(
                                 w * 0.35f, h * 0.08f,
                                 w * 0.65f, h * 0.08f,
-                                w * 0.78f, h * 0.16f
+                                w * 0.76f, h * 0.16f
                             )
                             cubicTo(
-                                w * 0.65f, h * 0.24f,
-                                w * 0.35f, h * 0.24f,
-                                w * 0.22f, h * 0.16f
+                                w * 0.65f, h * 0.23f,
+                                w * 0.35f, h * 0.23f,
+                                w * 0.24f, h * 0.16f
                             )
                             close()
                         }
@@ -373,41 +326,38 @@ fun PowerButton(
                             path = glassGloss,
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.White.copy(alpha = if (isConnected) 0.35f else 0.20f),
+                                    Color.White.copy(alpha = if (isConnected) 0.30f else 0.15f),
                                     Color.White.copy(alpha = 0f)
                                 ),
                                 startY = h * 0.08f,
-                                endY = h * 0.24f
+                                endY = h * 0.23f
                             )
                         )
                     }
                 }
 
-                // ─── Center Icon (Shield or Power) with Drop Shadow ───
+                // ─── Center Icon (Shield or Power) without any rectangle border ───
                 Icon(
                     imageVector = if (isConnected) Icons.Default.Shield else Icons.Default.PowerSettingsNew,
                     contentDescription = if (isConnected) "Disconnect" else "Connect",
                     tint = if (isConnected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .size(50.dp)
-                        .graphicsLayer {
-                            shadowElevation = if (isConnected) 8f else 0f
-                        }
+                    modifier = Modifier.size(48.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // ─── Status Pill ───
+        // ─── Status Pill (Google Material 3 Styled) ───
         Box(
             modifier = Modifier
                 .clip(CircleShape)
                 .background(
-                    if (isConnected) primaryEmerald.copy(alpha = 0.10f)
+                    if (isConnected) MaterialTheme.colorScheme.tertiaryContainer
+                    else if (isConnecting) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.surfaceContainerHigh
                 )
-                .padding(horizontal = 18.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -418,7 +368,8 @@ fun PowerButton(
                         .size(8.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isConnected) primaryEmerald
+                            if (isConnected) MaterialTheme.colorScheme.tertiary
+                            else if (isConnecting) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.outline
                         )
                 )
@@ -426,9 +377,10 @@ fun PowerButton(
                 Text(
                     text = if (isConnected) "Protected" else if (isConnecting) "Connecting..." else "Not connected",
                     style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Medium
                     ),
-                    color = if (isConnected) primaryEmerald
+                    color = if (isConnected) MaterialTheme.colorScheme.onTertiaryContainer
+                    else if (isConnecting) MaterialTheme.colorScheme.onPrimaryContainer
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
