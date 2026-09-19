@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         repository = DnsRepository.getInstance(applicationContext)
+        com.dnsly.app.service.api.DnslyApiClient.getInstance(applicationContext).scheduleHeartbeat(repository)
 
         requestNotificationPermission()
 
