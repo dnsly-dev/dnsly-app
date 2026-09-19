@@ -48,11 +48,10 @@ class BlocklistManager private constructor(private val context: Context) {
     private val _totalBlockedCount = MutableStateFlow(0)
     val totalBlockedCount: StateFlow<Int> = _totalBlockedCount.asStateFlow()
 
-    private val cacheFile = File(context.filesDir, "compiled_blocklist.txt")
-
     init {
         scope.launch {
-            loadInitialBlocklist()
+            initStarterCacheIfNeeded()
+            recompileBlocklist()
         }
     }
 
@@ -296,6 +295,9 @@ class BlocklistManager private constructor(private val context: Context) {
     fun setShieldEnabled(enabled: Boolean) {
         _isShieldEnabled.value = enabled
         prefs.edit().putBoolean("shield_enabled", enabled).apply()
+        scope.launch {
+            recompileBlocklist()
+        }
     }
 
     fun togglePreset(presetId: String, enabled: Boolean) {
@@ -304,7 +306,27 @@ class BlocklistManager private constructor(private val context: Context) {
         }
         _presets.value = updated
         prefs.edit().putBoolean("preset_${presetId}_enabled", enabled).apply()
-        triggerUpdate()
+
+        scope.launch {
+            val file = getPresetFile(presetId)
+            if (enabled && (!file.exists() || file.length() == 0L)) {
+                // Fetch this specific list in background
+                val preset = updated.firstOrNull { it.id == presetId }
+                if (preset != null) {
+                    val downloaded = downloadAndCacheList(preset.url, file)
+                    if (downloaded != null) {
+                        prefs.edit()
+                            .putInt("preset_${presetId}_count", downloaded.size)
+                            .putLong("preset_${presetId}_updated", System.currentTimeMillis())
+                            .apply()
+                        _presets.value = _presets.value.map {
+                            if (it.id == presetId) it.copy(domainCount = downloaded.size, lastUpdated = System.currentTimeMillis()) else it
+                        }
+                    }
+                }
+            }
+            recompileBlocklist()
+        }
     }
 
     fun addCustomUrl(name: String, url: String) {
@@ -317,14 +339,29 @@ class BlocklistManager private constructor(private val context: Context) {
         val updated = _customUrls.value + newUrl
         _customUrls.value = updated
         saveCustomUrls(updated)
-        triggerUpdate()
+
+        scope.launch {
+            val file = getCustomFile(newUrl.id)
+            val downloaded = downloadAndCacheList(newUrl.url, file)
+            if (downloaded != null) {
+                _customUrls.value = _customUrls.value.map {
+                    if (it.id == newUrl.id) it.copy(domainCount = downloaded.size) else it
+                }
+                saveCustomUrls(_customUrls.value)
+            }
+            recompileBlocklist()
+        }
     }
 
     fun removeCustomUrl(id: String) {
         val updated = _customUrls.value.filter { it.id != id }
         _customUrls.value = updated
         saveCustomUrls(updated)
-        triggerUpdate()
+        getCustomFile(id).delete()
+
+        scope.launch {
+            recompileBlocklist()
+        }
     }
 
     fun toggleCustomUrl(id: String, enabled: Boolean) {
@@ -333,7 +370,23 @@ class BlocklistManager private constructor(private val context: Context) {
         }
         _customUrls.value = updated
         saveCustomUrls(updated)
-        triggerUpdate()
+
+        scope.launch {
+            val file = getCustomFile(id)
+            if (enabled && (!file.exists() || file.length() == 0L)) {
+                val custom = updated.firstOrNull { it.id == id }
+                if (custom != null) {
+                    val downloaded = downloadAndCacheList(custom.url, file)
+                    if (downloaded != null) {
+                        _customUrls.value = _customUrls.value.map {
+                            if (it.id == id) it.copy(domainCount = downloaded.size) else it
+                        }
+                        saveCustomUrls(_customUrls.value)
+                    }
+                }
+            }
+            recompileBlocklist()
+        }
     }
 
     fun addWhitelistDomain(rawDomain: String) {
@@ -370,38 +423,76 @@ class BlocklistManager private constructor(private val context: Context) {
         return false
     }
 
-    /**
-     * Loads compiled cache from disk or falls back to bundled asset starter list.
-     */
-    private suspend fun loadInitialBlocklist() = withContext(Dispatchers.IO) {
-        val domains = HashSet<String>(60000)
-        if (cacheFile.exists() && cacheFile.length() > 0) {
-            try {
-                FileInputStream(cacheFile).use { input ->
-                    BlocklistParser.parseStream(input, domains)
-                }
-            } catch (_: Exception) {
-                domains.clear()
-            }
-        }
+    private fun getPresetFile(presetId: String): File = File(context.filesDir, "preset_${presetId}.txt")
+    private fun getCustomFile(customId: String): File = File(context.filesDir, "custom_${customId}.txt")
 
-        // Fallback to bundled starter list if cache was empty
-        if (domains.isEmpty()) {
+    /**
+     * Seeds initial default blocklist file if not present.
+     */
+    private suspend fun initStarterCacheIfNeeded() = withContext(Dispatchers.IO) {
+        val adawayFile = getPresetFile("adaway")
+        if (!adawayFile.exists() || adawayFile.length() == 0L) {
             try {
                 context.assets.open("default_blocklist.txt").use { input ->
-                    BlocklistParser.parseStream(input, domains)
+                    FileOutputStream(adawayFile).use { output ->
+                        input.copyTo(output)
+                    }
                 }
-            } catch (_: Exception) {
-                // Ignore asset missing
-            }
+                val count = countDomainsInFile(adawayFile)
+                prefs.edit()
+                    .putInt("preset_adaway_count", count)
+                    .putLong("preset_adaway_updated", System.currentTimeMillis())
+                    .apply()
+                _presets.value = _presets.value.map {
+                    if (it.id == "adaway") it.copy(domainCount = count, lastUpdated = System.currentTimeMillis()) else it
+                }
+            } catch (_: Exception) {}
         }
-
-        BlocklistEngine.updateDomains(domains)
-        _totalBlockedCount.value = domains.size
     }
 
     /**
-     * Downloads and refreshes active blocklists in the background.
+     * Recompiles the active in-memory blocklist strictly from enabled feeds.
+     */
+    private suspend fun recompileBlocklist() = withContext(Dispatchers.IO) {
+        if (!_isShieldEnabled.value) {
+            BlocklistEngine.updateDomains(emptySet())
+            _totalBlockedCount.value = 0
+            return@withContext
+        }
+
+        val activePresets = _presets.value.filter { it.isEnabled }
+        val activeCustom = _customUrls.value.filter { it.isEnabled }
+
+        val combinedDomains = HashSet<String>(100000)
+
+        for (preset in activePresets) {
+            val file = getPresetFile(preset.id)
+            if (file.exists() && file.length() > 0L) {
+                try {
+                    FileInputStream(file).use { input ->
+                        BlocklistParser.parseStream(input, combinedDomains)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        for (custom in activeCustom) {
+            val file = getCustomFile(custom.id)
+            if (file.exists() && file.length() > 0L) {
+                try {
+                    FileInputStream(file).use { input ->
+                        BlocklistParser.parseStream(input, combinedDomains)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        BlocklistEngine.updateDomains(combinedDomains)
+        _totalBlockedCount.value = combinedDomains.size
+    }
+
+    /**
+     * Downloads and refreshes all active blocklists in the background when the user taps update.
      */
     fun triggerUpdate(onComplete: ((Boolean) -> Unit)? = null) {
         if (_isUpdating.value) return
@@ -414,90 +505,79 @@ class BlocklistManager private constructor(private val context: Context) {
     }
 
     private suspend fun updateAllActiveBlocklists(): Boolean = withContext(Dispatchers.IO) {
-        val activePresets = _presets.value.filter { it.isEnabled }
-        val activeCustom = _customUrls.value.filter { it.isEnabled }
+        var anySuccess = false
+        val currentPresets = _presets.value
+        val currentCustom = _customUrls.value
 
-        val combinedDomains = HashSet<String>(150000)
-        var anyDownloaded = false
-
-        // Always include default starter list
-        try {
-            context.assets.open("default_blocklist.txt").use { input ->
-                BlocklistParser.parseStream(input, combinedDomains)
-            }
-        } catch (_: Exception) {}
-
-        // Download active presets
-        val updatedPresets = _presets.value.toMutableList()
-        for (i in updatedPresets.indices) {
-            val preset = updatedPresets[i]
+        for (preset in currentPresets) {
             if (preset.isEnabled) {
-                val downloaded = downloadList(preset.url)
-                if (downloaded != null && downloaded.isNotEmpty()) {
-                    combinedDomains.addAll(downloaded)
-                    updatedPresets[i] = preset.copy(
-                        domainCount = downloaded.size,
-                        lastUpdated = System.currentTimeMillis()
-                    )
+                val file = getPresetFile(preset.id)
+                val downloaded = downloadAndCacheList(preset.url, file)
+                if (downloaded != null) {
                     prefs.edit()
                         .putInt("preset_${preset.id}_count", downloaded.size)
                         .putLong("preset_${preset.id}_updated", System.currentTimeMillis())
                         .apply()
-                    anyDownloaded = true
-                }
-            }
-        }
-        _presets.value = updatedPresets
-
-        // Download active custom URLs
-        val updatedCustom = _customUrls.value.toMutableList()
-        for (i in updatedCustom.indices) {
-            val custom = updatedCustom[i]
-            if (custom.isEnabled) {
-                val downloaded = downloadList(custom.url)
-                if (downloaded != null && downloaded.isNotEmpty()) {
-                    combinedDomains.addAll(downloaded)
-                    updatedCustom[i] = custom.copy(domainCount = downloaded.size)
-                    anyDownloaded = true
-                }
-            }
-        }
-        _customUrls.value = updatedCustom
-        saveCustomUrls(updatedCustom)
-
-        if (combinedDomains.isNotEmpty()) {
-            // Write to disk cache
-            try {
-                FileOutputStream(cacheFile).use { output ->
-                    val writer = output.bufferedWriter(Charsets.UTF_8)
-                    for (d in combinedDomains) {
-                        writer.write(d)
-                        writer.newLine()
+                    _presets.value = _presets.value.map {
+                        if (it.id == preset.id) it.copy(domainCount = downloaded.size, lastUpdated = System.currentTimeMillis()) else it
                     }
-                    writer.flush()
+                    anySuccess = true
                 }
-            } catch (_: Exception) {}
-
-            BlocklistEngine.updateDomains(combinedDomains)
-            _totalBlockedCount.value = combinedDomains.size
+            }
         }
 
-        anyDownloaded || combinedDomains.isNotEmpty()
+        for (custom in currentCustom) {
+            if (custom.isEnabled) {
+                val file = getCustomFile(custom.id)
+                val downloaded = downloadAndCacheList(custom.url, file)
+                if (downloaded != null) {
+                    _customUrls.value = _customUrls.value.map {
+                        if (it.id == custom.id) it.copy(domainCount = downloaded.size) else it
+                    }
+                    saveCustomUrls(_customUrls.value)
+                    anySuccess = true
+                }
+            }
+        }
+
+        recompileBlocklist()
+        anySuccess
     }
 
-    private fun downloadList(url: String): Set<String>? {
+    private fun downloadAndCacheList(url: String, targetFile: File): Set<String>? {
         return try {
             val request = Request.Builder().url(url).build()
             val response = httpClient.newCall(request).execute()
             if (!response.isSuccessful) return null
             val body = response.body ?: return null
-            val set = HashSet<String>()
-            body.byteStream().use { stream ->
-                BlocklistParser.parseStream(stream, set)
+
+            val tempFile = File(context.cacheDir, "temp_${UUID.randomUUID()}.txt")
+            FileOutputStream(tempFile).use { output ->
+                body.byteStream().copyTo(output)
             }
+
+            val set = HashSet<String>()
+            FileInputStream(tempFile).use { input ->
+                BlocklistParser.parseStream(input, set)
+            }
+
+            if (set.isNotEmpty()) {
+                tempFile.copyTo(targetFile, overwrite = true)
+            }
+            tempFile.delete()
             set
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun countDomainsInFile(file: File): Int {
+        val set = HashSet<String>()
+        try {
+            FileInputStream(file).use { input ->
+                BlocklistParser.parseStream(input, set)
+            }
+        } catch (_: Exception) {}
+        return set.size
     }
 }
