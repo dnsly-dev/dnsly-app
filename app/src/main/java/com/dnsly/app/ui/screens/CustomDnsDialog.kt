@@ -1,13 +1,10 @@
 package com.dnsly.app.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,23 +14,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Http
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -49,77 +45,39 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dnsly.app.model.DnsServer
-
-private enum class CustomDnsMode {
-    NEXTDNS_ID,
-    DOH_DOT,
-    IPV4_RAW
-}
 
 @Composable
 fun CustomDnsDialog(
     onDismiss: () -> Unit,
     onSave: (name: String, primaryIp: String, secondaryIp: String, hostname: String, dohUrl: String) -> DnsServer
 ) {
-    var mode by remember { mutableStateOf(CustomDnsMode.NEXTDNS_ID) }
-
-    // NextDNS ID Mode
-    var nextDnsId by remember { mutableStateOf("") }
-    var customName by remember { mutableStateOf("") }
-
-    // Advanced / Manual Fields
+    var name by remember { mutableStateOf("") }
+    var dohUrl by remember { mutableStateOf("") }
+    var dotHostname by remember { mutableStateOf("") }
     var primaryIp by remember { mutableStateOf("") }
     var secondaryIp by remember { mutableStateOf("") }
-    var hostname by remember { mutableStateOf("") }
-    var dohUrl by remember { mutableStateOf("") }
 
-    val cleanNextDnsId = nextDnsId.trim().lowercase()
+    val cleanName = name.trim()
+    val cleanDoh = dohUrl.trim()
+    val cleanDot = dotHostname.trim()
+    val cleanPrimary = primaryIp.trim()
+    val cleanSecondary = secondaryIp.trim()
 
-    // Calculated derived values
-    val effectiveName = when (mode) {
-        CustomDnsMode.NEXTDNS_ID -> customName.ifBlank { if (cleanNextDnsId.isNotBlank()) "NextDNS ($cleanNextDnsId)" else "NextDNS Custom" }
-        else -> customName.ifBlank { "Custom DNS Server" }
-    }
-
-    val effectivePrimaryIp = when (mode) {
-        CustomDnsMode.NEXTDNS_ID -> "45.90.28.0"
-        CustomDnsMode.DOH_DOT -> primaryIp.ifBlank { "45.90.28.0" }
-        CustomDnsMode.IPV4_RAW -> primaryIp.trim()
-    }
-
-    val effectiveSecondaryIp = when (mode) {
-        CustomDnsMode.NEXTDNS_ID -> "45.90.30.0"
-        CustomDnsMode.DOH_DOT -> secondaryIp.ifBlank { "45.90.30.0" }
-        CustomDnsMode.IPV4_RAW -> secondaryIp.trim()
-    }
-
-    val effectiveHostname = when (mode) {
-        CustomDnsMode.NEXTDNS_ID -> if (cleanNextDnsId.isNotBlank()) "$cleanNextDnsId.dns.nextdns.io" else ""
-        CustomDnsMode.DOH_DOT -> hostname.trim()
-        CustomDnsMode.IPV4_RAW -> hostname.trim()
-    }
-
-    val effectiveDohUrl = when (mode) {
-        CustomDnsMode.NEXTDNS_ID -> if (cleanNextDnsId.isNotBlank()) "https://dns.nextdns.io/$cleanNextDnsId" else ""
-        CustomDnsMode.DOH_DOT -> dohUrl.trim()
-        CustomDnsMode.IPV4_RAW -> dohUrl.trim()
-    }
-
-    val canSave = when (mode) {
-        CustomDnsMode.NEXTDNS_ID -> cleanNextDnsId.length in 5..8 && cleanNextDnsId.all { it.isLetterOrDigit() }
-        CustomDnsMode.DOH_DOT -> (effectiveDohUrl.startsWith("https://") || effectiveHostname.contains(".")) && effectiveName.isNotBlank()
-        CustomDnsMode.IPV4_RAW -> isValidIpv4(effectivePrimaryIp) && effectiveName.isNotBlank()
-    }
+    val hasEncrypted = cleanDoh.isNotBlank() || cleanDot.isNotBlank()
+    val hasValidIpv4 = isValidIpv4(cleanPrimary)
+    val canSave = cleanName.isNotBlank() && (hasEncrypted || hasValidIpv4)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = RoundedCornerShape(24.dp),
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -128,30 +86,30 @@ fun CustomDnsDialog(
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Dns,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Column {
                     Text(
                         text = "Add Custom DNS",
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
                         ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "NextDNS, Pi-hole, or AdGuard Home",
+                        text = "Setup your custom DNS resolver",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -162,294 +120,141 @@ fun CustomDnsDialog(
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // ─── Setup Mode Selector Chips ───
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
+                // ─── NextDNS-Style Card 1: Server Identification ───
+                NextDnsSectionCard(
+                    icon = Icons.Default.Dns,
+                    title = "Identification",
+                    subtitle = "Name and label your resolver"
                 ) {
-                    FilterChip(
-                        selected = mode == CustomDnsMode.NEXTDNS_ID,
-                        onClick = { mode = CustomDnsMode.NEXTDNS_ID },
-                        label = { Text("NextDNS ID", fontWeight = if (mode == CustomDnsMode.NEXTDNS_ID) FontWeight.SemiBold else FontWeight.Normal) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        shape = CircleShape,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        border = null
-                    )
-
-                    FilterChip(
-                        selected = mode == CustomDnsMode.DOH_DOT,
-                        onClick = { mode = CustomDnsMode.DOH_DOT },
-                        label = { Text("DoH / DoT", fontWeight = if (mode == CustomDnsMode.DOH_DOT) FontWeight.SemiBold else FontWeight.Normal) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        shape = CircleShape,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        border = null
-                    )
-
-                    FilterChip(
-                        selected = mode == CustomDnsMode.IPV4_RAW,
-                        onClick = { mode = CustomDnsMode.IPV4_RAW },
-                        label = { Text("IPv4 Direct", fontWeight = if (mode == CustomDnsMode.IPV4_RAW) FontWeight.SemiBold else FontWeight.Normal) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Public, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        shape = CircleShape,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        border = null
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // ─── Mode 1: NextDNS ID ───
-                if (mode == CustomDnsMode.NEXTDNS_ID) {
-                    Card(
-                        shape = MaterialTheme.shapes.medium,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(
-                                text = "NextDNS Profile Configuration",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Enter your 6-character NextDNS Profile ID from my.nextdns.io/setup",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            OutlinedTextField(
-                                value = nextDnsId,
-                                onValueChange = { if (it.length <= 8) nextDnsId = it },
-                                label = { Text("NextDNS Profile ID") },
-                                placeholder = { Text("e.g. 28a9b1") },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Fingerprint,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (cleanNextDnsId.length in 5..8 && cleanNextDnsId.all { it.isLetterOrDigit() }) {
-                                        Icon(
-                                            Icons.Default.CheckCircle,
-                                            contentDescription = "Valid",
-                                            tint = MaterialTheme.colorScheme.tertiary
-                                        )
-                                    }
-                                },
-                                singleLine = true,
-                                shape = MaterialTheme.shapes.small,
-                                colors = dialogTextFieldColors(),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            OutlinedTextField(
-                                value = customName,
-                                onValueChange = { customName = it },
-                                label = { Text("Friendly Name (optional)") },
-                                placeholder = { Text("e.g. My NextDNS") },
-                                singleLine = true,
-                                shape = MaterialTheme.shapes.small,
-                                colors = dialogTextFieldColors(),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-
-                    if (cleanNextDnsId.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // NextDNS Live Resolved Preview Box
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Shield,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.tertiary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Generated NextDNS Endpoints:",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "• DoH: https://dns.nextdns.io/$cleanNextDnsId",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Text(
-                                    text = "• DoT: $cleanNextDnsId.dns.nextdns.io",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Text(
-                                    text = "• Anycast IPs: 45.90.28.0 / 45.90.30.0",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // ─── Mode 2: DoH / DoT Encrypted URL ───
-                else if (mode == CustomDnsMode.DOH_DOT) {
                     OutlinedTextField(
-                        value = customName,
-                        onValueChange = { customName = it },
+                        value = name,
+                        onValueChange = { name = it },
                         label = { Text("Server Name") },
-                        placeholder = { Text("e.g. My Private DoH") },
+                        placeholder = { Text("e.g. My NextDNS / Pi-hole / AdGuard") },
                         singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                        colors = dialogTextFieldColors(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = nextDnsFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                // ─── NextDNS-Style Card 2: Encrypted Endpoints (DoH / DoT) ───
+                NextDnsSectionCard(
+                    icon = Icons.Default.Lock,
+                    title = "Endpoints",
+                    subtitle = "Encrypted protocols (DoH & DoT)",
+                    badge = "Encrypted"
+                ) {
                     OutlinedTextField(
                         value = dohUrl,
                         onValueChange = { dohUrl = it },
-                        label = { Text("DNS-over-HTTPS (DoH) URL") },
-                        placeholder = { Text("https://example.com/dns-query") },
+                        label = { Text("DNS-over-HTTPS (DoH)") },
+                        placeholder = { Text("https://dns.nextdns.io/xxxxxx") },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Http,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
                             )
                         },
+                        trailingIcon = {
+                            if (cleanDoh.startsWith("https://")) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = "Valid DoH",
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                        colors = dialogTextFieldColors(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = nextDnsFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
                     OutlinedTextField(
-                        value = hostname,
-                        onValueChange = { hostname = it },
-                        label = { Text("DNS-over-TLS (DoT) Hostname (optional)") },
-                        placeholder = { Text("dns.example.com") },
+                        value = dotHostname,
+                        onValueChange = { dotHostname = it },
+                        label = { Text("DNS-over-TLS (DoT) Hostname") },
+                        placeholder = { Text("xxxxxx.dns.nextdns.io") },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.Lock,
+                                Icons.Default.Security,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
                             )
                         },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                        colors = dialogTextFieldColors(),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    OutlinedTextField(
-                        value = primaryIp,
-                        onValueChange = { primaryIp = it },
-                        label = { Text("Bootstrap IPv4 (optional)") },
-                        placeholder = { Text("1.1.1.1") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Public,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        trailingIcon = {
+                            if (cleanDot.contains(".") && !cleanDot.contains("/")) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = "Valid DoT",
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp
+                        ),
                         singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                        colors = dialogTextFieldColors(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = nextDnsFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                // ─── Mode 3: IPv4 Direct (Pi-hole / Router) ───
-                else if (mode == CustomDnsMode.IPV4_RAW) {
-                    OutlinedTextField(
-                        value = customName,
-                        onValueChange = { customName = it },
-                        label = { Text("Server Name") },
-                        placeholder = { Text("e.g. Home Pi-hole") },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                        colors = dialogTextFieldColors(),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                // ─── NextDNS-Style Card 3: IPv4 Addresses (Anycast / Direct) ───
+                NextDnsSectionCard(
+                    icon = Icons.Default.Public,
+                    title = "IPv4 Anycast & Bootstrap",
+                    subtitle = "Direct IP addresses for standard lookup"
+                ) {
                     OutlinedTextField(
                         value = primaryIp,
                         onValueChange = { primaryIp = it },
                         label = { Text("Primary IPv4") },
-                        placeholder = { Text("192.168.1.100") },
+                        placeholder = { Text("45.90.28.0") },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Public,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
                             )
                         },
                         trailingIcon = {
-                            if (isValidIpv4(primaryIp)) {
+                            if (isValidIpv4(cleanPrimary)) {
                                 Icon(
                                     Icons.Default.CheckCircle,
-                                    contentDescription = "Valid",
-                                    tint = MaterialTheme.colorScheme.tertiary
+                                    contentDescription = "Valid IPv4",
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                        colors = dialogTextFieldColors(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = nextDnsFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -458,20 +263,69 @@ fun CustomDnsDialog(
                     OutlinedTextField(
                         value = secondaryIp,
                         onValueChange = { secondaryIp = it },
-                        label = { Text("Secondary IPv4 (optional)") },
-                        placeholder = { Text("192.168.1.101") },
+                        label = { Text("Secondary IPv4 (Optional)") },
+                        placeholder = { Text("45.90.30.0") },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Public,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
                             )
                         },
+                        trailingIcon = {
+                            if (isValidIpv4(cleanSecondary)) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = "Valid IPv4",
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        shape = MaterialTheme.shapes.small,
-                        colors = dialogTextFieldColors(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = nextDnsFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+
+                // Helper tip box matching NextDNS layout style
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            RoundedCornerShape(12.dp)
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(top = 2.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Provide either a DoH/DoT encrypted endpoint or at least one valid IPv4 address.",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         },
@@ -480,11 +334,11 @@ fun CustomDnsDialog(
                 onClick = {
                     if (canSave) {
                         onSave(
-                            effectiveName,
-                            effectivePrimaryIp,
-                            effectiveSecondaryIp,
-                            effectiveHostname,
-                            effectiveDohUrl
+                            cleanName,
+                            cleanPrimary.ifBlank { "45.90.28.0" },
+                            cleanSecondary.ifBlank { "45.90.30.0" },
+                            cleanDot,
+                            cleanDoh
                         )
                         onDismiss()
                     }
@@ -496,7 +350,7 @@ fun CustomDnsDialog(
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 )
             ) {
-                Text("Save & Connect", fontWeight = FontWeight.Medium)
+                Text("Save Server", fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
@@ -511,11 +365,80 @@ fun CustomDnsDialog(
 }
 
 @Composable
-private fun dialogTextFieldColors() = OutlinedTextFieldDefaults.colors(
+private fun NextDnsSectionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    badge: String? = null,
+    content: @Composable () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                RoundedCornerShape(16.dp)
+            )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (badge != null) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.padding(start = 6.dp)
+                    ) {
+                        Text(
+                            text = badge,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 24.dp, bottom = 12.dp)
+            )
+
+            content()
+        }
+    }
+}
+
+@Composable
+private fun nextDnsFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = MaterialTheme.colorScheme.primary,
-    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
     focusedLabelColor = MaterialTheme.colorScheme.primary,
     unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
 )
