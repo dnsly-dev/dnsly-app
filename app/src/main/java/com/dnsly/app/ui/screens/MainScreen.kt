@@ -863,6 +863,7 @@ private fun LocalShieldQuickCard(
     onConfigure: () -> Unit
 ) {
     val numberFormatter = remember { NumberFormat.getNumberInstance(Locale.US) }
+    val googleGreen = MaterialTheme.colorScheme.tertiary
 
     Card(
         shape = MaterialTheme.shapes.large,
@@ -871,7 +872,7 @@ private fun LocalShieldQuickCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            // Header: Title + Configure Action Button
+            // Header Row: Title + "Manage" link
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -885,35 +886,23 @@ private fun LocalShieldQuickCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Button(
+                TextButton(
                     onClick = onConfigure,
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Manage",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
+                    Text(
+                        text = "Configure",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Main Status Box (Tappable to configure feeds)
+            // Main Status Box
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -925,7 +914,7 @@ private fun LocalShieldQuickCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.padding(14.dp)
+                    modifier = Modifier.padding(16.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -934,23 +923,23 @@ private fun LocalShieldQuickCard(
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (isEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    if (isEnabled) googleGreen.copy(alpha = 0.12f)
                                     else MaterialTheme.colorScheme.surfaceContainerHigh
                                 )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Shield,
                                 contentDescription = null,
-                                tint = if (isEnabled) MaterialTheme.colorScheme.primary
+                                tint = if (isEnabled) googleGreen
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
 
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -965,7 +954,7 @@ private fun LocalShieldQuickCard(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Surface(
                                         shape = MaterialTheme.shapes.extraSmall,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                        color = MaterialTheme.colorScheme.tertiaryContainer
                                     ) {
                                         Text(
                                             text = "${numberFormatter.format(rulesCount)} rules",
@@ -973,14 +962,15 @@ private fun LocalShieldQuickCard(
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold
                                             ),
-                                            color = MaterialTheme.colorScheme.primary,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = if (isEnabled) "On-device direct blocking (<0.1ms)" else "Tap to configure or turn on",
+                                text = if (isEnabled) "Zero-latency on-device filtering (<0.1ms)" else "Tap to configure or enable shield",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -994,37 +984,56 @@ private fun LocalShieldQuickCard(
                         onCheckedChange = onToggle,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary
+                            checkedTrackColor = googleGreen
                         )
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Sub-link to whitelist and curated lists
+            // Quick Protection Category Tags
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.small)
-                    .clickable(onClick = onConfigure)
-                    .padding(vertical = 4.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Configure 12 Curated Lists & Whitelist",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
-                )
+                val tags = listOf("Ads", "Trackers", "Malware", "Phishing", "Scams", "Whitelist")
+                tags.forEach { tag ->
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isEnabled) MaterialTheme.colorScheme.surfaceContainerHigh
+                        else MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(onClick = onConfigure)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            if (isEnabled) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = googleGreen,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = tag,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = if (isEnabled) MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }
