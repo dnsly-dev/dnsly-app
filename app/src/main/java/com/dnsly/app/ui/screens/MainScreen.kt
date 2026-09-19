@@ -941,23 +941,29 @@ private fun LocalShieldQuickCard(
 
                         Spacer(modifier = Modifier.width(14.dp))
 
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text(
                                     text = if (isEnabled) "Shield Active" else "Shield Paused",
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.SemiBold
                                     ),
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
                                 if (isEnabled && rulesCount > 0) {
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Surface(
-                                        shape = MaterialTheme.shapes.extraSmall,
+                                        shape = CircleShape,
                                         color = MaterialTheme.colorScheme.tertiaryContainer
                                     ) {
                                         Text(
-                                            text = "${numberFormatter.format(rulesCount)} rules",
+                                            text = if (rulesCount >= 1000) String.format(Locale.US, "%.1fK", rulesCount / 1000f) else "$rulesCount",
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold
@@ -970,14 +976,18 @@ private fun LocalShieldQuickCard(
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = if (isEnabled) "Zero-latency on-device filtering (<0.1ms)" else "Tap to configure or enable shield",
+                                text = if (isEnabled && rulesCount > 0) "${numberFormatter.format(rulesCount)} rules active"
+                                else if (isEnabled) "Active • Zero-latency DNS"
+                                else "Tap to configure or enable",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     Switch(
                         checked = isEnabled,
