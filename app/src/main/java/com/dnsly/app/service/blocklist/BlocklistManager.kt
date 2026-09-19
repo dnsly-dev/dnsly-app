@@ -82,7 +82,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "Curated DNS-level ad blocking rules",
                 url = "https://v.firebog.net/hosts/AdguardDNS.txt",
                 category = BlocklistCategory.ADS,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "peter_lowe",
@@ -90,7 +90,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "Zero false positive curated ad servers",
                 url = "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext",
                 category = BlocklistCategory.ADS,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "easylist",
@@ -116,7 +116,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "Global standard user tracking & analytics shield",
                 url = "https://v.firebog.net/hosts/Easyprivacy.txt",
                 category = BlocklistCategory.TRACKING,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "windows_spy",
@@ -124,7 +124,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "Microsoft telemetry & diagnostic data",
                 url = "https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt",
                 category = BlocklistCategory.TRACKING,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "frogeye_trackers",
@@ -150,7 +150,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "Live malware payloads, botnets & C2 servers",
                 url = "https://urlhaus.abuse.ch/downloads/hostfile/",
                 category = BlocklistCategory.SECURITY,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "phishing_army",
@@ -158,7 +158,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "Active verified phishing & credential theft domains",
                 url = "https://phishing.army/download/phishing_army_blocklist_extended.txt",
                 category = BlocklistCategory.SECURITY,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "dandelion_malware",
@@ -166,7 +166,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "High accuracy ransomware & Trojan domain sinkhole",
                 url = "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt",
                 category = BlocklistCategory.SECURITY,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "prigent_crypto",
@@ -174,7 +174,7 @@ class BlocklistManager private constructor(private val context: Context) {
                 description = "In-browser cryptocurrency miners & drainers",
                 url = "https://v.firebog.net/hosts/Prigent-Crypto.txt",
                 category = BlocklistCategory.SECURITY,
-                isEnabled = true
+                isEnabled = false
             ),
             BlocklistPreset(
                 id = "hagezi_tif_mini",

@@ -105,7 +105,9 @@ fun MainScreen(
 
     var showCustomDialog by remember { mutableStateOf(false) }
     var showDnsSheet by remember { mutableStateOf(false) }
+    var showShieldSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val shieldSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
     val quickPickServers = remember(servers) {
@@ -152,6 +154,25 @@ fun MainScreen(
                 onAddCustomClick = {
                     showDnsSheet = false
                     showCustomDialog = true
+                }
+            )
+        }
+    }
+
+    if (showShieldSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showShieldSheet = false },
+            sheetState = shieldSheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
+            ShieldSheetContent(
+                blocklistManager = blocklistManager,
+                onClose = {
+                    coroutineScope.launch {
+                        shieldSheetState.hide()
+                        showShieldSheet = false
+                    }
                 }
             )
         }
@@ -206,7 +227,7 @@ fun MainScreen(
                 isEnabled = isShieldEnabled,
                 rulesCount = shieldRulesCount,
                 onToggle = { blocklistManager.setShieldEnabled(it) },
-                onConfigure = onNavigateToShield
+                onConfigure = { showShieldSheet = true }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
