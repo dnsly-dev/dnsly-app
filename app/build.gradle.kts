@@ -4,6 +4,13 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = java.util.Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        load(java.io.FileInputStream(keystorePropertiesFile))
+    }
+}
+
 android {
     namespace = "com.dnsly.app"
     compileSdk = 35
@@ -21,8 +28,20 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keyPath = keystoreProperties.getProperty("storeFile") ?: "dnsly-release.jks"
+            val localKeyFile = file(keyPath)
+            storeFile = if (localKeyFile.exists()) localKeyFile else rootProject.file(keyPath)
+            storePassword = keystoreProperties.getProperty("storePassword") ?: "DNSly@2026ReleaseKey"
+            keyAlias = keystoreProperties.getProperty("keyAlias") ?: "dnsly-release-key"
+            keyPassword = keystoreProperties.getProperty("keyPassword") ?: "DNSly@2026ReleaseKey"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -243,7 +243,8 @@ fun DnslyApp(
                                 onToggleVpn = onToggleVpn,
                                 onNavigateToList = { navController.navigate("list") },
                                 onNavigateToReports = { selectedTab = MainNavTab.ACTIVITY },
-                                onNavigateToShield = { navController.navigate("shield") }
+                                onNavigateToShield = { navController.navigate("shield") },
+                                onNavigateToAbout = { navController.navigate("about") }
                             )
                         }
                         MainNavTab.ACTIVITY -> {
@@ -273,6 +274,11 @@ fun DnslyApp(
             val blocklistManager = androidx.compose.runtime.remember { BlocklistManager.getInstance(context) }
             ShieldScreen(
                 blocklistManager = blocklistManager,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable("about") {
+            com.dnsly.app.ui.screens.AboutScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

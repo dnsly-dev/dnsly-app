@@ -266,24 +266,45 @@ class DnsVpnService : VpnService() {
         outputStream: FileOutputStream
     ) {
         val startTime = System.currentTimeMillis()
+        var resolved = false
 
-        // Ultra-Fast Direct Native UDP DNS (Port 53) - 10ms to 30ms latency
-        val primaryIp = server.ipv4Primary.ifBlank { "1.1.1.1" }
-        var resolved = resolveUdp(
-            queryBytes = queryBytes,
-            upstreamIp = primaryIp,
-            startTime = startTime,
-            domain = domain,
-            qType = qType,
-            srcPort = srcPort,
-            dstPort = dstPort,
-            srcIp = srcIp,
-            dstIp = dstIp,
-            outputStream = outputStream,
-            serverName = server.name
-        )
+        // 1. Primary Route: Encrypted DNS-over-HTTPS (DoH) if configured on upstream server
+        if (server.dohUrl.isNotBlank()) {
+            dohClient.registerBootstrap(server.dohUrl, server.ipv4Primary)
+            resolved = resolveDoh(
+                queryBytes = queryBytes,
+                dohUrl = server.dohUrl,
+                startTime = startTime,
+                domain = domain,
+                qType = qType,
+                srcPort = srcPort,
+                dstPort = dstPort,
+                srcIp = srcIp,
+                dstIp = dstIp,
+                outputStream = outputStream,
+                serverName = server.name
+            )
+        }
 
-        // Instant fallback to secondary DNS IP if primary fails
+        // 2. High-Speed Direct UDP Route (Port 53) if DoH is unconfigured or unavailable
+        if (!resolved) {
+            val primaryIp = server.ipv4Primary.ifBlank { "1.1.1.1" }
+            resolved = resolveUdp(
+                queryBytes = queryBytes,
+                upstreamIp = primaryIp,
+                startTime = startTime,
+                domain = domain,
+                qType = qType,
+                srcPort = srcPort,
+                dstPort = dstPort,
+                srcIp = srcIp,
+                dstIp = dstIp,
+                outputStream = outputStream,
+                serverName = server.name
+            )
+        }
+
+        // 3. Fallback to secondary DNS IP if primary fails
         if (!resolved && server.ipv4Secondary.isNotBlank()) {
             resolved = resolveUdp(
                 queryBytes = queryBytes,
@@ -313,6 +334,57 @@ class DnsVpnService : VpnService() {
                     protocol = "Failed"
                 )
             )
+        }
+    }
+
+    private fun resolveDoh(
+        queryBytes: ByteArray,
+        dohUrl: String,
+        startTime: Long,
+        domain: String,
+        qType: Int,
+        srcPort: Int,
+        dstPort: Int,
+        srcIp: ByteArray,
+        dstIp: ByteArray,
+        outputStream: FileOutputStream,
+        serverName: String
+    ): Boolean {
+        return try {
+            val respPayload = dohClient.query(dohUrl, queryBytes) ?: return false
+            if (respPayload.size < 12) return false
+
+            val latency = System.currentTimeMillis() - startTime
+            val fullResponse = buildUdpIpPacket(
+                srcIp = dstIp,
+                dstIp = srcIp,
+                srcPort = dstPort,
+                dstPort = srcPort,
+                payload = respPayload
+            )
+
+            synchronized(outputStream) {
+                outputStream.write(fullResponse)
+                outputStream.flush()
+            }
+
+            val isBlocked = DnsPacketParser.isSinkholedResponse(respPayload)
+            DnsCache.put(domain, qType, respPayload)
+
+            repository.recordQuery(
+                QueryLog(
+                    domain = domain,
+                    isBlocked = isBlocked,
+                    queryType = DnsPacketParser.getTypeName(qType),
+                    upstreamServer = serverName,
+                    latencyMs = latency,
+                    reason = if (isBlocked) "Blocked by Upstream DNS Protection" else "Encrypted DNS-over-HTTPS (DoH)",
+                    protocol = "DoH"
+                )
+            )
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 
