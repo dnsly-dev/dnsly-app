@@ -111,7 +111,13 @@ fun MainScreen(
     var showShieldSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val shieldSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val bgSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
+
+    val prefs = remember { context.getSharedPreferences("dnsly_prefs", android.content.Context.MODE_PRIVATE) }
+    var hasSeenBgGuide by remember { mutableStateOf(prefs.getBoolean("has_seen_bg_guide", false)) }
+    var isBatteryIgnored by remember { mutableStateOf(com.dnsly.app.ui.components.isBatteryOptimizationIgnored(context)) }
+    var showBgSheet by remember { mutableStateOf(!hasSeenBgGuide && !isBatteryIgnored) }
 
     val quickPickServers = remember(servers) {
         val topIds = listOf("adguard_default", "cloudflare_security", "quad9_security", "controld_ads", "google_public", "mullvad_adblock")
@@ -181,6 +187,21 @@ fun MainScreen(
         }
     }
 
+    if (showBgSheet) {
+        com.dnsly.app.ui.components.BackgroundUsageSheet(
+            sheetState = bgSheetState,
+            onDismiss = {
+                prefs.edit().putBoolean("has_seen_bg_guide", true).apply()
+                hasSeenBgGuide = true
+                coroutineScope.launch {
+                    bgSheetState.hide()
+                    showBgSheet = false
+                }
+                isBatteryIgnored = com.dnsly.app.ui.components.isBatteryOptimizationIgnored(context)
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
@@ -234,14 +255,23 @@ fun MainScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Info,
-                        contentDescription = "About & Updates",
+                        contentDescription = "About",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(22.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // ─── Background Usage Warning / Optimization Banner ───
+            if (!isBatteryIgnored) {
+                Spacer(modifier = Modifier.height(4.dp))
+                com.dnsly.app.ui.components.BackgroundUsageBanner(
+                    onClick = { showBgSheet = true }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // ─── Section 1: Hero Status ───
             HeroStatusSection(
