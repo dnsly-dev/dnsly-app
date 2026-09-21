@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,9 +8,9 @@ plugins {
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = java.util.Properties().apply {
+val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
-        load(java.io.FileInputStream(keystorePropertiesFile))
+        load(FileInputStream(keystorePropertiesFile))
     }
 }
 
@@ -30,18 +33,23 @@ android {
 
     signingConfigs {
         create("release") {
-            val keyPath = keystoreProperties.getProperty("storeFile") ?: "dnsly-release.jks"
-            val localKeyFile = file(keyPath)
-            storeFile = if (localKeyFile.exists()) localKeyFile else rootProject.file(keyPath)
-            storePassword = keystoreProperties.getProperty("storePassword") ?: "DNSly@2026ReleaseKey"
-            keyAlias = keystoreProperties.getProperty("keyAlias") ?: "dnsly-release-key"
-            keyPassword = keystoreProperties.getProperty("keyPassword") ?: "DNSly@2026ReleaseKey"
+            val keyPath = keystoreProperties.getProperty("storeFile")
+            if (!keyPath.isNullOrBlank()) {
+                val localKeyFile = file(keyPath)
+                storeFile = if (localKeyFile.exists()) localKeyFile else rootProject.file(keyPath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile?.exists() == true) {
+                signingConfig = releaseSigning
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
