@@ -253,6 +253,11 @@ fun AboutScreen(
                         value = "dnsly.shovon.bd",
                         onClick = { openUrl("https://dnsly.shovon.bd") }
                     )
+                    AboutDetailRow(
+                        label = "Privacy Policy",
+                        value = "Read Online",
+                        onClick = { openUrl("https://dnsly.shovon.bd/privacy") }
+                    )
 
                     Spacer(modifier = Modifier.height(14.dp))
 
